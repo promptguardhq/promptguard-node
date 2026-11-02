@@ -47,28 +47,6 @@ export interface AgentPoliciesResponse {
   total: number
 }
 
-/** Request to register a new agent identity. */
-export interface AgentRegisterRequest {
-  agent_name: string
-  allowed_tools?: Array<string> | unknown
-}
-
-/** Response from agent registration — secret is shown only once. */
-export interface AgentRegisterResponse {
-  agent_id: string
-  agent_name: string
-  agent_secret: string
-  credential_prefix: string
-}
-
-/** Response from credential rotation. */
-export interface AgentRotateResponse {
-  agent_id: string
-  new_secret: string
-  credential_prefix: string
-  old_credential_revoked: boolean
-}
-
 export interface AgentSecurityHealthResponse {
   status: string
   validator_status: string
@@ -195,6 +173,56 @@ export interface AppliedThreshold {
   block: number
   /** The score compared with the thresholds: the weighted score where the detector reports one, otherwise its confidence. */
   score: number
+}
+
+/** One entry of an Organization's audit trail, in the SIEM event contract
+(schema_version 1): what a person, a key or the system did there. */
+export interface AuditEventRecord {
+  schema_version: string
+  /** `audit_event`. */
+  event: string
+  event_id: string
+  /** When it happened, ISO 8601 with offset. */
+  timestamp: string
+  organization_id: string | unknown
+  organization_name: string | unknown
+  /** Null for an action on the whole organization. */
+  project_id: string | unknown
+  /** The project's name. */
+  project: string | unknown
+  /** `authentication`, `authorization`, `data_access`, `data_modification`, `configuration`, `security`, `system` or `compliance`. */
+  category: string
+  /** What was done, such as `member_role_changed`. */
+  action: string
+  /** `debug`, `info`, `warning`, `error` or `critical`. */
+  severity: string
+  /** `success`, `failure`, `denied` or `error`. */
+  outcome: string
+  /** `user`, `api_key`, `service` or `system`. */
+  actor_type: string
+  /** Who did it: a user id, or null for the system. */
+  actor_id: string | unknown
+  actor_ip: string | unknown
+  resource_type: string | unknown
+  resource_id: string | unknown
+  description: string
+  details: Record<string, unknown>
+  /** The entry's seal on its organization's tamper-evident chain. */
+  integrity_hash: string | unknown
+  /** Opens the audit log in its Organization. */
+  dashboard_url: string
+  text: string
+}
+
+/** One page of an Organization's audit trail, oldest first. */
+export interface AuditExportPage {
+  organization_id: string
+  organization_name: string | unknown
+  events: Array<AuditEventRecord>
+  /** Where this page ended. Pass it back as `cursor` to read on; it is returned even when the page is short, so a poller always has its place. Null only when there was no position to report. */
+  next_cursor: string | unknown
+  /** Whether another page is ready now. */
+  has_more: boolean
 }
 
 export interface AuthErrorEnvelope {
@@ -376,6 +404,10 @@ export interface EnrollRequest {
   end_user_id?: string | unknown
   /** Capture tier the agent is running: 'extension' or 'proxy' */
   coverage?: string
+  /** Lowercase hex SHA-256 the agent derived from this machine's identity */
+  machine_identity?: string | unknown
+  /** What machine_identity was derived from: hardware | os_install | vdi_pool */
+  machine_identity_source?: string | unknown
 }
 
 export interface EnrollResponse {
@@ -400,6 +432,8 @@ export interface ErrorDetail {
   type: string
   /** Machine-readable error code */
   code: string
+  /** The error catalogue's entry for `code` (cause and fix); present when the catalogue documents the code */
+  doc_url?: string | unknown
 }
 
 export interface ErrorEnvelope {
@@ -593,6 +627,12 @@ export interface GuardResponse {
   unscanned?: Array<UnscannedAttachment>
   /** Unavailable checks: detectors this scan would have run but the deployment cannot, because their backing service (an ML inference endpoint, an LLM judge, a bundled model) is not configured. An `allow` with a non-empty `unavailable` is NOT 'every check passed' — these detectors never looked. A detector that ran and found nothing is not listed, and neither is one the project's plan or guardrail settings leave out. */
   unavailable?: Array<UnavailableCheck>
+  /** How many Requests this call counted as toward the monthly allowance: 1 for a scan, whatever its length. 0 for a call that is not a scan: a findings-only report, a doctor probe or an Override. */
+  requests_counted?: number
+  /** The tokens of content this call scanned, counted with the `cl100k_base` tokenizer whatever model the content is for: each scanned text is encoded on its own and the counts are added. What is scanned is the messages read with their tool calls, retrieved context and Tool definitions; for a Shadow AI Device, the Current turn, the Instructions and the Tool definitions not already checked, never an Earlier turn. Reported, not yet charged for. 0 for a call that is not a scan. */
+  billed_tokens?: number
+  /** The Detection level this call ran at: always `deep`, every detector including the LLM judges. Every plan runs the full engine and is billed at one list price, per call and per Billed token. */
+  detection_level?: string
   /** What this account is entitled to, at the instant this scan was answered. Null when the engine cannot say — an account with no subscription row, an admin key that bypasses the counter, or a row it could not read. Null is 'unknown', NOT 'unentitled': a client that reads it as a limit has invented a refusal the engine never made. */
   entitlement?: GuardEntitlement | unknown
 }
@@ -813,13 +853,38 @@ export interface QuotaErrorDetail {
   code: string
   current_plan: string
   requests_used: number
-  requests_limit: number
+  /** The month's Request allowance; null on a Plan sold in usage credit (ADR-0041), which reports `credit_*` instead */
+  requests_limit: number | unknown
+  /** The month's usage credit at list prices, in US dollars */
+  credit_usd?: number | unknown
+  /** What this month's Requests cost at list prices, in US dollars */
+  credit_used_usd?: number | unknown
+  /** The month's usage credit not yet spent, in US dollars */
+  credit_remaining_usd?: number | unknown
   upgrade_url: string
   retry_after?: number | unknown
+  /** The error catalogue's entry for `code` (cause and fix); present when the catalogue documents the code */
+  doc_url?: string | unknown
 }
 
 export interface QuotaErrorEnvelope {
   error: QuotaErrorDetail
+}
+
+export interface RateLimitErrorDetail {
+  message: string
+  /** 'rate_limit_exceeded' */
+  type: string
+  /** 'rate_limit_exceeded' */
+  code: string
+  /** Seconds until the window resets; also `Retry-After` */
+  retry_after: number
+  /** The error catalogue's entry for `code` (cause and fix); present when the catalogue documents the code */
+  doc_url?: string | unknown
+}
+
+export interface RateLimitErrorEnvelope {
+  error: RateLimitErrorDetail
 }
 
 export interface RedactRequest {
@@ -838,7 +903,10 @@ export interface RedactResponse {
 /** Where the shadow traffic sample comes from.
 
 ``corpus`` reuses the curated Shadow eval corpus (offline, deterministic);
-``inline`` lets the caller pass their own recent-traffic prompts. */
+``inline`` lets the caller pass their own recent-traffic prompts.
+The corpus is not in PromptGuard's API images, hosted or self-hosted,
+which answer ``corpus`` with 400 ``overlay_corpus_unavailable``: send
+``inline`` with ``texts``. */
 export interface SampleSource {
   kind?: "corpus" | "inline"
   limit?: number
@@ -907,6 +975,31 @@ export interface SiemEventRecord {
   dashboard_url: string
   text: string
   threshold?: Record<string, unknown> | unknown
+}
+
+/** A refusal for the subscription's state, not for a spent quota.
+
+Deliberately not ``QuotaErrorDetail``: it carries no ``requests_used`` /
+``requests_limit`` (nothing was exceeded -- reporting them beside this
+message is the contradiction #565 was filed for), no ``retry_after``
+(waiting does not fix it), and no ``on_demand_url`` (pay-as-you-go on a dead
+subscription is refused by design). One door, and it works. */
+export interface SubscriptionInactiveErrorDetail {
+  message: string
+  /** 'subscription_inactive' */
+  type: string
+  /** 'subscription_inactive' */
+  code: string
+  current_plan: string
+  /** e.g. 'cancelled', 'past_due', 'paused'; 'none' where no plan covers the key's organization at all */
+  subscription_status: string
+  reactivate_url: string
+  /** The error catalogue's entry for `code` (cause and fix); present when the catalogue documents the code */
+  doc_url?: string | unknown
+}
+
+export interface SubscriptionInactiveErrorEnvelope {
+  error: SubscriptionInactiveErrorDetail
 }
 
 /** What a caller can run -- so a CLI can list before it picks. */
@@ -1085,6 +1178,10 @@ export interface UsageStatsResponse {
   used_this_month: number
   remaining: number
   usage_percentage: number
+  credit_usd?: number | unknown
+  credit_used_usd?: number
+  credit_remaining_usd?: number | unknown
+  billed_tokens_this_month?: number
   reset_date?: string | unknown
 }
 
