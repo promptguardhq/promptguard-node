@@ -13,6 +13,12 @@ survives three releases is a changelog nobody is maintaining.
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-11-03
+
+**No runtime change.** Generated types, packaging metadata and development
+tooling only. The version is a minor one to stay level with the Python SDK,
+whose 2.5.0 ships the same type sync in a module that can be imported.
+
 ### Added
 
 - **Every release is announced in Slack `#releases`, and npm shows the
@@ -23,6 +29,43 @@ survives three releases is a changelog nobody is maintaining.
   failure is a warning, never a failed release. npm has no changelog field,
   so the package now ships `CHANGELOG.md` and the README's Links section
   (npm's package page) links it.
+
+### Changed
+
+- **Generated API types and the cross-SDK `/guard` contract (v1.10.0) synced
+  from the published spec** (#61).
+  - `GuardResponse` gains `flagged` (a finding was reported, not enforced;
+    `decision` stays `allow`), `detectors_agreeing` and `basis` (what a `block`
+    rests on), and `requests_counted`, `billed_tokens` and `detection_level`.
+    `ThreatDetail` gains `flagged` and `segment`.
+  - `GuardContext.tool_definitions` (tools offered to the model, scanned as
+    tool manifests), `GuardRequest.override` with the new `GuardOverride`
+    (a Shadow AI Device's report that a coached prompt was sent anyway), and
+    `EnrollRequest.machine_identity` / `machine_identity_source`.
+  - Error shapes: `doc_url` on `ErrorDetail` and `QuotaErrorDetail`;
+    `QuotaErrorDetail.requests_limit` may be null on a credit-based plan, which
+    reports `credit_usd`, `credit_used_usd` and `credit_remaining_usd`; new
+    `RateLimitErrorDetail` / `RateLimitErrorEnvelope` and
+    `SubscriptionInactiveErrorDetail` / `SubscriptionInactiveErrorEnvelope`.
+  - SIEM and audit export shapes: `SiemEventRecord`, `ExportPage`,
+    `AuditEventRecord` and `AuditExportPage`. `UsageStatsResponse` gains the
+    credit fields and `billed_tokens_this_month`.
+  - `AgentRegisterRequest`, `AgentRegisterResponse` and `AgentRotateResponse`
+    are gone with the agent-registration endpoints they described.
+
+  As in 2.3.0, none of this is importable from the package: nothing under
+  `src/` imports `src/generated/api-types.ts` and the `exports` map publishes
+  no `./generated` subpath. The hand-written `GuardRequestBody` and
+  `GuardResponseBody` types the SDK exports are unchanged.
+- The package's `repository` and `bugs` URLs point at
+  `github.com/promptguardhq/promptguard-node`, where the repository now lives.
+
+### Security
+
+- **minimatch 11 and glob 14 under jest** (GHSA-g3hv-75wg-m249,
+  GHSA-3g3m-2fjr-6pw4), as plain overrides that npm 10 and 11 both apply.
+  Development dependencies of the test tooling only; no published version of
+  this package installed them.
 
 ## [2.4.1] — 2026-10-23
 
