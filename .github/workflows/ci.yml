@@ -39,6 +39,12 @@ jobs:
       - name: GitHub holds no secrets
         run: python3 scripts/check_no_github_secrets.py --check
 
+      # Agent files load and resolve (CLAUDE.md symlinks AGENTS.md, links and
+      # anchors resolve, no placeholders), and no em or en dashes. Vendored
+      # from the platform monorepo's scripts/utils/.
+      - name: Agent files and no em/en dashes
+        run: python3 scripts/check_agent_files.py --check && python3 scripts/check_no_dashes.py --check
+
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
           node-version: '22'
