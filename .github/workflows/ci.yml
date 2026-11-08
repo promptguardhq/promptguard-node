@@ -150,7 +150,7 @@ jobs:
         run: npm pack --dry-run
 
       # Packs the real tarball and verifies every exports entry resolves
-      # under both require() and native ESM import() — guards against
+      # under both require() and native ESM import(): guards against
       # ERR_PACKAGE_PATH_NOT_EXPORTED regressions in package.json exports.
       - name: Packaging smoke test (CJS + ESM)
         run: npm run test:pack

@@ -3,7 +3,7 @@
  * The version being released must have a CHANGELOG entry.
  *
  * A CHANGELOG is only worth having if it is written when the release is cut.
- * Left to be reconstructed afterwards it becomes a list of tag subjects — which
+ * Left to be reconstructed afterwards it becomes a list of tag subjects, which
  * is exactly what every entry below 1.10.1 is, because there was no CHANGELOG
  * until 2026-08-11 and "chore(release): 1.10.0" cannot be turned into a release
  * note after the fact.
@@ -39,7 +39,7 @@ const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 if (!new RegExp(`^##\\s*\\[${escaped}\\]`, "m").test(text)) {
   console.error(
     `error: no CHANGELOG entry for ${version}.\n` +
-      `       Add a '## [${version}] — YYYY-MM-DD' section describing what changed\n` +
+      `       Add a '## [${version}] - YYYY-MM-DD' section describing what changed\n` +
       "       for the people installing it. Reconstructing this after the fact\n" +
       "       produces a list of commit subjects, which is what the pre-1.10.1\n" +
       "       entries already are.",

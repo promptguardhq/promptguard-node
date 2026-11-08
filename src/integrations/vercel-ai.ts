@@ -17,7 +17,7 @@
  * ```
  *
  * - `promptGuardMiddleware(options)` is the same scanning as AI SDK
- *   middleware, for `wrapLanguageModel` — useful alongside other middleware,
+ *   middleware, for `wrapLanguageModel`: useful alongside other middleware,
  *   and the way in on ai 4:
  *
  * ```ts
@@ -188,7 +188,7 @@ export function promptGuardMiddleware(options: PromptGuardMiddlewareOptions = {}
             if (!redactedMessages.length || isPartial) {
               // A redact decision without (or with too few) redacted
               // messages cannot be honored; proceeding would silently send
-              // the content the Guard API asked us to redact — escalate to
+              // the content the Guard API asked us to redact, escalate to
               // a block.
               logger.error(
                 `redact decision returned ` +
@@ -331,7 +331,7 @@ export interface LanguageModelLike {
 /**
  * Wrap an AI SDK language model so every call it makes is scanned by
  * PromptGuard, exactly as `promptGuardMiddleware(options)` would scan it
- * under `wrapLanguageModel` — generated and streamed alike.
+ * under `wrapLanguageModel`: generated and streamed alike.
  *
  * The wrapped model is the model it wraps in every other respect: its own
  * specification version, provider, model id, supported URLs and any other
@@ -383,7 +383,7 @@ export function promptguard<M extends LanguageModelLike>(
   const doStream = (params: object) => call("stream", params)
 
   // A proxy rather than a copy, so getters, methods and fields of any
-  // specification version — including ones not yet written — behave as on
+  // specification version, including ones not yet written, behave as on
   // the original. Everything is read from the model itself, so getters and
   // methods that use its private state keep working.
   //
@@ -443,7 +443,7 @@ interface ModelIdentity {
  * itself errors, that promise never settles. So a V2 stream ends with an
  * `error` part carrying the error, which ai@5 hands to `onError` and to
  * `fullStream`. Every other version keeps erroring the stream, which ai@6
- * and ai@7 throw from whatever reads it — `textStream` included, so a
+ * and ai@7 throw from whatever reads it, `textStream` included, so a
  * caller that reads only text cannot mistake a blocked answer for a short
  * one. The version is the only signal available: this package never
  * imports `ai`, so it cannot ask which `ai` is calling.
@@ -480,7 +480,7 @@ function modelIdOf(
  *
  * Messages without scannable text (e.g. image-only content) are skipped, so
  * `indices[k]` records the original prompt index each guard message came
- * from — required to map redactions back without misalignment.
+ * from: required to map redactions back without misalignment.
  */
 function vercelPromptToGuardMessages(prompt: unknown): {
   messages: GuardMessage[]

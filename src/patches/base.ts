@@ -1,5 +1,5 @@
 /**
- * Shared patch wrapper — the single place where pre-call scan,
+ * Shared patch wrapper: the single place where pre-call scan,
  * block/redact handling, original call, and post-call scan live.
  *
  * Every SDK-specific patch provides a {@link PatchConfig} describing
@@ -28,7 +28,7 @@ export interface PatchConfig {
   extractResponseText?: (response: unknown, args: unknown[]) => string | null
   /**
    * Rewrite the call args with the redacted message contents.
-   * Return `null` when the message shape cannot be redacted safely — in
+   * Return `null` when the message shape cannot be redacted safely, in
    * enforce mode that escalates the redact decision to a block.
    */
   applyRedaction?: (args: unknown[], redactedMessages: GuardMessage[]) => unknown[] | null
@@ -59,7 +59,7 @@ function isStreaming(args: unknown[], response: unknown): boolean {
  * Known limitation: the wrapper is a plain `async` function, so SDK-specific
  * augmented promise types are not preserved. In particular the OpenAI SDK's
  * `APIPromise` helpers (`.withResponse()`, `.asResponse()`) are unavailable
- * on patched methods — `await` the call and use the plain result instead.
+ * on patched methods: `await` the call and use the plain result instead.
  * Output scanning (`scanResponses: true`) is also skipped for streaming
  * calls, since the stream is consumed incrementally by the caller; a debug
  * log is emitted when that happens. See README "Limitations".
@@ -82,7 +82,7 @@ export function createPatchedMethod(
 
     if (!messages.length) {
       // An intercepted call whose body we could not extract anything from
-      // proceeds unscanned — say so instead of failing silently, since a
+      // proceeds unscanned, say so instead of failing silently, since a
       // provider body shape we don't recognize is an enforcement gap.
       logger.debug(
         `[${config.framework}] intercepted call yielded no scannable messages; proceeding unscanned`,
@@ -115,14 +115,14 @@ export function createPatchedMethod(
       if (decision?.redacted) {
         const redactedMessages = decision.redactedMessages ?? []
         // A redactedMessages list SHORTER than the scanned guard messages
-        // would leave the unmatched trailing messages unredacted — the
+        // would leave the unmatched trailing messages unredacted, the
         // per-SDK mappers silently keep original content for guard indices
         // past the end of the list. Treat a partial list like an
         // unredactable shape.
         const isPartial = redactedMessages.length < messages.length
         if (getMode() === "enforce") {
           // A redact decision with missing/empty/partial redactedMessages
-          // cannot be honored either — treat it exactly like an
+          // cannot be honored either, treat it exactly like an
           // unredactable shape.
           const redactedArgs =
             redactedMessages.length && !isPartial && config.applyRedaction

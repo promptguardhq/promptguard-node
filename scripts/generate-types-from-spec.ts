@@ -2,7 +2,7 @@
 /**
  * Generate TypeScript type definitions from the OpenAPI developer spec.
  *
- * Output goes to src/generated/api-types.ts — ONLY types, no runtime code.
+ * Output goes to src/generated/api-types.ts, ONLY types, no runtime code.
  * Hand-written client code in src/ is never touched.
  *
  * Usage:
@@ -44,7 +44,7 @@ interface OpenAPISpec {
 
 /**
  * Schema and property names are interpolated verbatim into the generated
- * TypeScript, so they must be plain identifiers — anything else could break
+ * TypeScript, so they must be plain identifiers, anything else could break
  * out of the declaration and inject code (enum values and descriptions are
  * escaped/sanitized; names must be equally constrained). Fail generation
  * loudly rather than emit a compromised file.
@@ -54,7 +54,7 @@ const IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 function assertValidIdentifier(name: string, kind: string): void {
   if (!IDENTIFIER_RE.test(name)) {
     throw new Error(
-      `${kind} ${JSON.stringify(name)} is not a valid TypeScript identifier — ` +
+      `${kind} ${JSON.stringify(name)} is not a valid TypeScript identifier, ` +
         "refusing to generate (possible spec injection)",
     )
   }
@@ -68,7 +68,7 @@ function resolveRef(ref: string): string {
 
 /**
  * Escape an enum value for interpolation inside a double-quoted TS string
- * literal — backslashes first, then quotes, so a `"` in a spec enum can't
+ * literal: backslashes first, then quotes, so a `"` in a spec enum can't
  * break out of the generated literal.
  */
 function escapeStringLiteral(value: string): string {
@@ -76,7 +76,7 @@ function escapeStringLiteral(value: string): string {
 }
 
 /**
- * Sanitize a spec description for interpolation into a block comment —
+ * Sanitize a spec description for interpolation into a block comment,
  * strip the block-comment terminator sequence (asterisk-slash) so a
  * description can't end the comment early and inject code into the
  * generated file.
@@ -180,10 +180,10 @@ function main() {
   const header = [
     "/**",
     ` * Auto-generated from OpenAPI spec (v${version}).`,
-    " * DO NOT EDIT — regenerate with: npx ts-node scripts/generate-types-from-spec.ts",
+    " * DO NOT EDIT. Regenerate with: npx ts-node scripts/generate-types-from-spec.ts",
     " *",
     " * These are type-only definitions. Custom client logic lives in src/guard.ts,",
-    " * src/client.ts, src/patches/, and src/integrations/ — those files are never",
+    " * src/client.ts, src/patches/, and src/integrations/, those files are never",
     " * modified by this generator.",
     " */",
     "",

@@ -1,5 +1,5 @@
 /**
- * Tests for the shared patch wrapper (src/patches/base.ts) — every
+ * Tests for the shared patch wrapper (src/patches/base.ts), every
  * decision × mode × failOpen combination against a stubbed guard client,
  * plus redaction escalation and streaming skip behavior.
  */
@@ -287,7 +287,7 @@ describe("createPatchedMethod redaction", () => {
     ]
     await expect(patched({ messages: twoMessages })).rejects.toThrow(PromptGuardBlockedError)
     expect(original).not.toHaveBeenCalled()
-    // The mapper must never see a partial list — it is escalated centrally.
+    // The mapper must never see a partial list, it is escalated centrally.
     expect(applyRedaction).not.toHaveBeenCalled()
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining("1 redacted messages for 2 scanned"),

@@ -125,7 +125,7 @@ export class GuardDecision {
   /**
    * @throws {GuardApiError} when `data.decision` is missing or not one of
    *   `allow` / `block` / `redact`. A malformed body must never silently
-   *   default to "allow" — surfacing it as a {@link GuardApiError} lets the
+   *   default to "allow": surfacing it as a {@link GuardApiError} lets the
    *   caller's explicit `failOpen` policy govern instead.
    */
   constructor(data: Partial<GuardResponseBody>) {
@@ -221,7 +221,7 @@ export interface GuardClientConfig {
    * Number of retry attempts for transient Guard API failures
    * (network errors and 429/5xx responses). Default: `3`. Set to `0` for
    * strict at-most-once semantics. Retries never change the eventual
-   * decision — after they are exhausted a {@link GuardApiError} is thrown so
+   * decision: after they are exhausted a {@link GuardApiError} is thrown so
    * the caller's `failOpen` policy governs, exactly as with no retries.
    */
   maxRetries?: number
@@ -295,14 +295,14 @@ export class GuardClient {
     const payload: GuardRequestBody = { messages, direction }
     if (model) payload.model = model
     // Normalize camelCase context (and deprecated snake_case aliases) into the
-    // snake_case wire shape — the wire format stays snake_case regardless of
+    // snake_case wire shape, the wire format stays snake_case regardless of
     // which field names the caller used.
     if (context) payload.context = serializeGuardContext(context)
     const serialized = JSON.stringify(payload)
 
     // Retry only transient failures (network errors, 429/5xx). Every terminal
     // outcome is still surfaced as a GuardApiError so the caller's `failOpen`
-    // policy governs — retries never turn a would-be error into an allow, and
+    // policy governs, retries never turn a would-be error into an allow, and
     // a block/redact decision (a successful 2xx) is never retried. This
     // preserves the exact enforcement semantics of the no-retry path.
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -342,7 +342,7 @@ export class GuardClient {
         )
       }
 
-      // A 2xx with a malformed body must not escape as a raw SyntaxError —
+      // A 2xx with a malformed body must not escape as a raw SyntaxError,
       // wrap it in GuardApiError so the caller's failOpen policy governs. A
       // truncated 2xx body can be transient, so it is retried like other
       // transient failures before finally surfacing.
@@ -357,7 +357,7 @@ export class GuardClient {
         throw new GuardApiError("invalid JSON in Guard response", resp.status)
       }
       // A valid 2xx body with an invalid `decision` is a definitive response,
-      // not a transient failure — GuardDecision throws GuardApiError and we do
+      // not a transient failure, GuardDecision throws GuardApiError and we do
       // NOT retry it (mirrors the no-retry path).
       return new GuardDecision(body)
     }

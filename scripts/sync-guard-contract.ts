@@ -11,7 +11,7 @@
  *
  * Nobody did. On 2026-08-11 the monorepo source was found two minor versions
  * behind this copy (v1.3.0 against v1.5.1) and missing an entire
- * `redaction_enforcement` section. Five months, undetected — because
+ * `redaction_enforcement` section. Five months, undetected, because
  * `tests/contract.test.ts` opens with "if this test fails, the Node SDK has
  * drifted from the cross-SDK contract" while reading a local duplicate of
  * itself. A file compared against its own copy cannot detect drift.
@@ -25,7 +25,7 @@
  * The lockfile is what gives `tests/contract.test.ts` something external to
  * check against. Hand-editing `tests/guard-contract.json` now fails the suite,
  * because the digest no longer matches the one recorded at sync time. Both files
- * move together only through this script, and only inside a reviewed PR — the
+ * move together only through this script, and only inside a reviewed PR, the
  * workflow never pushes to a branch anyone merges from.
  *
  * Usage:
@@ -88,7 +88,7 @@ function main(argv: string[]): number {
           "scripts/sync-guard-contract.ts from " +
           ".github/workflows/sync-from-api.yml. Do not hand-edit: " +
           "tests/contract.test.ts checks the contract against the digest " +
-          "recorded here, so editing either file alone fails the suite — " +
+          "recorded here, so editing either file alone fails the suite, " +
           "which is the drift this pair exists to catch.",
         source: SOURCE_URL,
         version,

@@ -8,12 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 `Unreleased` holds work that is merged but not yet published. Move entries into
-a dated version section when a release goes out — an `Unreleased` block that
+a dated version section when a release goes out, an `Unreleased` block that
 survives three releases is a changelog nobody is maintaining.
 
 ## [Unreleased]
 
-## [2.5.0] — 2026-11-03
+## [2.5.0] - 2026-11-03
 
 **No runtime change.** Generated types, packaging metadata and development
 tooling only. The version is a minor one to stay level with the Python SDK,
@@ -67,7 +67,7 @@ whose 2.5.0 ships the same type sync in a module that can be imported.
   Development dependencies of the test tooling only; no published version of
   this package installed them.
 
-## [2.4.1] — 2026-10-23
+## [2.4.1] - 2026-10-23
 
 ### Changed
 
@@ -77,7 +77,7 @@ whose 2.5.0 ships the same type sync in a module that can be imported.
   flagged threat in its detector's warn band. Types only; no change to how the
   client decides.
 
-## [2.4.0] — 2026-10-18
+## [2.4.0] - 2026-10-18
 
 ### Added
 
@@ -186,7 +186,7 @@ whose 2.5.0 ships the same type sync in a module that can be imported.
   override now selects `js-yaml` 4, whose `argparse` does not use it. Dev-scope
   only: no published version of this package ever installed it.
 
-## [2.3.0] — 2026-10-10
+## [2.3.0] - 2026-10-10
 
 **No runtime change.** Generated types and development tooling only. The
 version is a minor one to stay level with the Python SDK, whose 2.3.0 ships the
@@ -230,7 +230,7 @@ same type sync in a module that can be imported.
 - **handlebars moved to 4.7.10** for three advisories. Reached only through
   the test coverage reporter; nothing published was affected.
 
-## [2.2.1] — 2026-09-18
+## [2.2.1] - 2026-09-18
 
 ### Security
 
@@ -243,7 +243,7 @@ same type sync in a module that can be imported.
 - **Generated types and the cross-SDK contract re-synced from the platform API**
   (#50). Types only.
 
-## [2.2.0] — 2026-09-06
+## [2.2.0] - 2026-09-06
 
 **No user-facing change.** This release keeps the Node SDK's version in step
 with `promptguard-sdk` 2.2.0 on PyPI, which the cross-SDK contract pairs it
@@ -267,7 +267,7 @@ the version bump is not unexplained.
 - The auto-instrumentation report is covered by the cross-SDK contract, and the
   SDK's domain model is written down.
 
-## [2.1.0] — 2026-08-30
+## [2.1.0] - 2026-08-30
 
 ### Added
 
@@ -277,9 +277,9 @@ the version bump is not unexplained.
   configuring guardrails has types for the shape the API accepts instead of
   hand-writing objects.
 
-Additive only — nothing in 2.0.0 changed behaviour or signature.
+Additive only: nothing in 2.0.0 changed behaviour or signature.
 
-## [2.0.0] — 2026-08-26
+## [2.0.0] - 2026-08-26
 
 What each removal means for your code, and what to use instead: [Upgrade to SDK and CLI 2.0](https://docs.promptguard.co/releases/sdk-v2-upgrade).
 
@@ -287,27 +287,27 @@ What each removal means for your code, and what to use instead: [Upgrade to SDK 
 
 - **The red team client was unreachable for every customer.** Every method on
   `pg.redteam` targeted `/internal/redteam`, which is the platform-admin plane
-  and rejects an API key outright — so the namespace could not have worked for
+  and rejects an API key outright, so the namespace could not have worked for
   anyone holding a `pg_live_` key, whatever they did. It now targets the
   customer-facing `/api/v1/security-testing`.
 
 ### Removed
 
-- **BREAKING — three namespaces that could only ever 404 are gone**, along with
+- **BREAKING: three namespaces that could only ever 404 are gone**, along with
   the types that described them. `pg.completions`, `pg.embeddings` and
   `pg.scrape` called endpoints the API does not serve, as did
   `pg.redteam.runAutonomous()` and `pg.redteam.intelligenceStats()`. Nothing
-  that worked has been taken away — but this is a major version because the
+  that worked has been taken away, but this is a major version because the
   removed **types** were exported, so code that merely `import type`s them
   compiles today and will not after: `AutonomousRedTeamReport`,
   `AutonomousRedTeamRequest`, `CompletionRequest`, `CompletionResponse`,
   `EmbeddingRequest`, `EmbeddingResponse`, `IntelligenceStats`, `ScrapeResult`.
 
-  If you are affected, the fix is to delete the import — there is no
+  If you are affected, the fix is to delete the import, there is no
   replacement, because there was never a working implementation behind it. For
   chat traffic, use `pg.chat.completions.create(...)`, which is unchanged.
 
-## [1.13.0] — 2026-08-19
+## [1.13.0] - 2026-08-19
 
 ### Changed
 
@@ -316,7 +316,7 @@ What each removal means for your code, and what to use instead: [Upgrade to SDK 
   - `GuardMessage.content` widens from `string` to
     `string | Array<Record<string, unknown>>`. The API has accepted
     OpenAI/Anthropic content-block arrays for a while; the types said otherwise,
-    so passing one type-checked as an error. Widening only — existing string
+    so passing one type-checked as an error. Widening only, existing string
     callers are unaffected.
   - `GuardResponse.unscanned` is new (`UnscannedAttachment[]`). It lists the
     parts of a request that reached the API and produced nothing to scan. Worth
@@ -325,32 +325,32 @@ What each removal means for your code, and what to use instead: [Upgrade to SDK 
     clean".
   - `CreateProjectRequest.strictness_level` narrows from `string` to
     `"strict" | "moderate" | "permissive"`. **This can fail a compile that
-    previously passed** — but only where the value being passed was never
+    previously passed**, but only where the value being passed was never
     accepted by the API in the first place, which the old type let through
     silently.
 
 ### Added
 
-- **`verify()` — a positive check that protection is actually live.** `init()`
+- **`verify()`: a positive check that protection is actually live.** `init()`
   resolving has never meant anything is being scanned: the SDK fails open, so a
   rejected API key, an unreachable Guard API or a provider SDK we never hooked
   all leave an application that runs perfectly and blocks nothing. In a
   native-ESM app, where the patches may never attach at all, that is the default
   rather than the edge case. Each of those already logged a warning, but a
   warning in a log nobody tails is indistinguishable from silence. `verify()`
-  makes the real calls — reachability, authentication, a live injection probe, a
-  PII probe — and returns what came back, so a deployment can assert it instead
+  makes the real calls, reachability, authentication, a live injection probe, a
+  PII probe, and returns what came back, so a deployment can assert it instead
   of assuming it. The checks and their names mirror `promptguard verify` in the
   CLI and `promptguard.verify()` in the Python SDK so all three agree on what
   "working" means. It never rejects for a failed check, so CI sees every problem
   at once rather than only the first, and it retries once rather than three
-  times — a diagnostic that takes seven seconds of backoff to report a dead host
+  times, a diagnostic that takes seven seconds of backoff to report a dead host
   is a diagnostic nobody waits for.
-- **`PromptGuard.baseUrl`** — the base URL requests actually go to, after the
+- **`PromptGuard.baseUrl`**: the base URL requests actually go to, after the
   `/proxy` suffix is applied. Previously only readable from the private config,
   which meant anything reporting on the client had to guess or re-derive it.
 
-## [1.11.0] — 2026-08-11
+## [1.11.0] - 2026-08-11
 
 ### Fixed
 
@@ -366,7 +366,7 @@ What each removal means for your code, and what to use instead: [Upgrade to SDK 
 - **An installed provider SDK we did not hook is now named at startup**, with
   the one-line fix (point that client at the proxy). Previously `init()` warned
   only when it applied zero patches, so partial coverage was silent.
-- `instrumentationReport()` — coverage as data, assertable in your own CI.
+- `instrumentationReport()`: coverage as data, assertable in your own CI.
 
 ### Changed
 
@@ -385,61 +385,61 @@ What each removal means for your code, and what to use instead: [Upgrade to SDK 
      written when the release is cut -- scripts/check-changelog.mjs fails the
      release if the version being published has no section. -->
 
-## [1.10.1] — 2026-08-03
+## [1.10.1] - 2026-08-03
 
 ### Changed
 
-- v1.10.1 — dependency updates and generated-type sync
+- v1.10.1, dependency updates and generated-type sync
 
-## [1.10.0] — 2026-07-12
+## [1.10.0] - 2026-07-12
 
 ### Changed
 
 - chore(release): 1.10.0
 
-## [1.9.0] — 2026-06-01
+## [1.9.0] - 2026-06-01
 
 ### Changed
 
 - feat: leveled logger, security-safe error logging, scan ergonomics (v1.9.0) (#20)
 
-## [1.8.0] — 2026-04-11
+## [1.8.0] - 2026-04-11
 
 ### Changed
 
 - fix: update version expectations in tests for v1.8.0
 
-## [1.7.1] — 2026-04-10
+## [1.7.1] - 2026-04-10
 
 ### Changed
 
 - chore: update model references to gpt-5-nano in docs and tests
 
-## [1.7.0] — 2026-04-07
+## [1.7.0] - 2026-04-07
 
 ### Changed
 
 - feat: add API contract testing, OpenAPI validation, and quota error handling
 
-## [1.6.0] — 2026-04-06
+## [1.6.0] - 2026-04-06
 
 ### Changed
 
 - fix: update test version assertions to match v1.6.0
 
-## [1.5.3] — 2026-04-05
+## [1.5.3] - 2026-04-05
 
 ### Changed
 
 - chore: bump version to 1.5.3
 
-## [1.5.2] — 2026-03-25
+## [1.5.2] - 2026-03-25
 
 ### Changed
 
 - v1.5.2: format and lint fixes
 
-## [1.5.1] — 2026-02-28
+## [1.5.1] - 2026-02-28
 
 ### Changed
 

@@ -1,5 +1,5 @@
 /**
- * Google Gen AI SDK patch — `@google/genai`, the SDK Google ships today.
+ * Google Gen AI SDK patch, `@google/genai`, the SDK Google ships today.
  *
  * `./google.ts` covers `@google/generative-ai`, which Google deprecated when
  * Gemini 2.0 landed. Both are patched: customers are still on the old one, and
@@ -8,7 +8,7 @@
  *
  * **This one cannot be patched on the prototype.** Every other patch in this
  * directory does `Klass.prototype.method = wrapped`. In `@google/genai`,
- * `generateContent` is assigned as an **own property in the constructor** —
+ * `generateContent` is assigned as an **own property in the constructor**,
  * `Models.prototype.generateContent` is `undefined`, and each client instance
  * gets its own copy. Verified against the published package rather than
  * assumed; the prototype approach would have installed cleanly, patched
@@ -65,7 +65,7 @@ function partText(part: unknown): string {
   return found.join("\n")
 }
 
-/** Flatten `contents` — a string, a Content, or a list mixing both. */
+/** Flatten `contents`: a string, a Content, or a list mixing both. */
 export function contentsToGuardFormat(contents: unknown): GuardMessage[] {
   if (contents == null) return []
   if (typeof contents === "string") return [{ role: "user", content: contents }]

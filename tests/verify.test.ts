@@ -4,13 +4,13 @@
  * The SDK fails open, so the states worth testing are the quiet ones: a key
  * that is rejected, a Guard API that cannot be reached, and a policy that lets
  * a plain injection through. In every one of those an instrumented application
- * keeps serving traffic and blocks nothing — and in a native-ESM app, where
+ * keeps serving traffic and blocks nothing, and in a native-ESM app, where
  * auto-instrumentation may never attach, that is the default rather than the
  * edge case.
  *
  * The distinction pinned down here is fail vs warn. A request that never
- * completed is a **fail** — the integration is broken. A request that completed
- * and came back permissive is a **warn** — it works, and the policy is the
+ * completed is a **fail**: the integration is broken. A request that completed
+ * and came back permissive is a **warn**: it works, and the policy is the
  * thing to look at. Collapsing the two in either direction makes the result
  * useless: all-fail cries wolf on a monitor-mode project, all-warn hides a dead
  * API key.
@@ -116,7 +116,7 @@ describe("a broken integration", () => {
 
     expect(report.ok).toBe(false)
     expect(statusOf(report, "authentication")).toBe("fail")
-    // The host answered — it answered 401 — so connectivity is fine, and
+    // The host answered, it answered 401, so connectivity is fine, and
     // saying otherwise sends someone to debug a network that works.
     expect(statusOf(report, "connectivity")).toBe("pass")
   })
@@ -139,7 +139,7 @@ describe("a broken integration", () => {
   it("does not reject when the scan returns a 2xx with a null body", async () => {
     // A proxy or gateway in front of the Guard API can answer 200 with `null`.
     // Dereferencing that would throw out of verify(), which is documented never
-    // to reject for a failed check — so a CI step would die instead of report.
+    // to reject for a failed check, so a CI step would die instead of report.
     global.fetch = routeFetch({
       scan: () => jsonResponse(null),
     }) as unknown as typeof fetch
@@ -189,7 +189,7 @@ describe("a permissive policy", () => {
 
   it("does not read a missing piiFound key as success", async () => {
     // Guards the field name: `piiFound` is camelCase on the wire, and spelling
-    // it `pii_found` would warn on every healthy integration instead — the same
+    // it `pii_found` would warn on every healthy integration instead, the same
     // silent wrongness this module exists to prevent.
     global.fetch = routeFetch({
       redact: () => jsonResponse({ redacted: "..." }),
@@ -218,7 +218,7 @@ describe("the instrumentation check", () => {
 
   it("warns but does not fail when nothing is patched", async () => {
     // The native-ESM case, and the proxy-client case. One of those is a
-    // problem and the other is normal, so this cannot be a failure — but it
+    // problem and the other is normal, so this cannot be a failure, but it
     // must not be silent either.
     mockedReport.mockReturnValue({
       patched: [],

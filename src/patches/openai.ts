@@ -8,8 +8,8 @@
  * CrewAI.js, and direct usage.
  *
  * Responses API scope: the patch extracts scannable text from the basic
- * `input` forms — a plain string, or an item array of role/content messages
- * (string content or `input_text`/`output_text`/`text` content parts) — plus
+ * `input` forms: a plain string, or an item array of role/content messages
+ * (string content or `input_text`/`output_text`/`text` content parts), plus
  * the `instructions` param. Exotic item types (function_call outputs,
  * reasoning items, etc.) are not scanned.
  */
@@ -258,7 +258,7 @@ function applyChatCompletionsPatch(): boolean {
 /**
  * The Conversation a Responses call belongs to, as its `session_id`.
  *
- * `conversation` is the call's own conversation, an id or `{ id }` — the same
+ * `conversation` is the call's own conversation, an id or `{ id }`: the same
  * on every turn. `previous_response_id` is not read: it names the previous
  * response, so it changes every turn.
  */
@@ -273,7 +273,7 @@ export function responsesConversationId(conversation: unknown): string | undefin
 function applyResponsesPatch(): boolean {
   let Responses: { prototype: { create: unknown } }
   try {
-    // Guarded require: older `openai` versions have no Responses API — the
+    // Guarded require: older `openai` versions have no Responses API, the
     // chat.completions patch still applies without it.
     const mod = require("openai/resources/responses/responses")
     Responses = mod.Responses
@@ -314,7 +314,7 @@ export function apply(): boolean {
     "openai patch active " +
       `(chat.completions=${chatPatched}, responses=${responsesPatched}): ` +
       "APIPromise helpers (.withResponse()/.asResponse()) " +
-      "are not preserved on patched methods — see README 'Limitations'",
+      "are not preserved on patched methods, see README 'Limitations'",
   )
   return true
 }

@@ -1,6 +1,6 @@
 /**
  * Auto-instrumentation sends an OpenAI Responses call's own `conversation` as
- * `session_id` — the same on every turn — and never `previous_response_id`,
+ * `session_id`: the same on every turn, and never `previous_response_id`,
  * which names the previous response and so changes every turn.
  *
  * The `openai` SDK is a virtual module here (it is an optional peer), and the

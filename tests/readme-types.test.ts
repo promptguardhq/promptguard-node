@@ -4,7 +4,7 @@
  * The README advertises an `import type { ... } from 'promptguard-sdk'` block.
  * Every type it lists MUST be a public export or the snippet fails to compile
  * for users. ts-jest type-checks this file when the suite runs, so a missing
- * export here fails CI — keeping the README snippet honest.
+ * export here fails CI: keeping the README snippet honest.
  *
  * This mirrors the exact identifiers in README.md "TypeScript Support", plus
  * the other proxy/redteam types the SDK re-exports, and exercises the

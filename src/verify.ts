@@ -5,7 +5,7 @@
  * open, so an invalid key, an unreachable Guard API, or a provider SDK we never
  * hooked all produce an application that runs perfectly and blocks nothing.
  * Each of those logs a warning, but a warning in a log nobody tails is
- * indistinguishable from silence — and in a native-ESM app, where
+ * indistinguishable from silence, and in a native-ESM app, where
  * auto-instrumentation may not attach at all, that silence is the default.
  *
  * `verify()` is the positive check: it makes real calls and reports what came
@@ -78,7 +78,7 @@ function check(name: string, status: CheckStatus, detail: string): VerifyCheck {
 
 /**
  * A thrown `PromptGuardError` carrying a real HTTP status means the host
- * answered — even a 401 is an answer. Anything else (a `fetch` TypeError, an
+ * answered: even a 401 is an answer. Anything else (a `fetch` TypeError, an
  * abort, the synthetic max-retries error with status 0) means we never got a
  * response, which is a connectivity problem and not an auth one. Reporting a
  * dead network as "API key rejected" sends people to rotate a key that is fine.
@@ -94,17 +94,17 @@ function describe(err: unknown): string {
 /**
  * Run the integration checks and return what happened.
  *
- * Credentials resolve exactly as they do everywhere else — explicit option,
+ * Credentials resolve exactly as they do everywhere else, explicit option,
  * then `PROMPTGUARD_API_KEY` / `PROMPTGUARD_BASE_URL` from the environment.
  *
  * Never rejects for a failed check: a check that threw would be useless in the
  * place this is most needed, which is a CI step or a pre-flight script that
  * wants every problem at once rather than only the first. A missing API key is
- * the one exception — that is a caller error, not a finding, and it throws
+ * the one exception, that is a caller error, not a finding, and it throws
  * `PromptGuardError` with code `missing_api_key` like the rest of the SDK.
  *
  * A **warn** means the request worked but the answer was not what a protected
- * setup should give — an injection that came back allowed, or a PII sample with
+ * setup should give: an injection that came back allowed, or a PII sample with
  * nothing detected. That is a policy question rather than a broken integration,
  * which is why it does not clear `ok`; it is still the thing to look at before
  * trusting the setup.
@@ -123,8 +123,8 @@ export async function verify(options: VerifyOptions = {}): Promise<VerifyReport>
   })
   const baseUrl = client.baseUrl
 
-  // One scan call answers three questions — is the host reachable, does the key
-  // authenticate, does detection fire — so verify() costs two requests, not four.
+  // One scan call answers three questions, is the host reachable, does the key
+  // authenticate, does detection fire, so verify() costs two requests, not four.
   let scanError: unknown
   let scanResult: { blocked?: boolean } = {}
   try {

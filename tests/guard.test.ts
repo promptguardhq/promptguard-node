@@ -70,7 +70,7 @@ describe("GuardDecision", () => {
   })
 
   test("empty body throws instead of defaulting to allow", () => {
-    // A malformed/empty body must never silently become an "allow" —
+    // A malformed/empty body must never silently become an "allow",
     // the caller's failOpen policy decides what happens.
     expect(() => new GuardDecision({})).toThrow(GuardApiError)
   })
@@ -238,7 +238,7 @@ describe("GuardClient", () => {
       text: async () => "Internal Server Error",
     })
 
-    // maxRetries: 0 — this test asserts the terminal 500 error shape, not the
+    // maxRetries: 0, this test asserts the terminal 500 error shape, not the
     // retry behavior (which is covered in "GuardClient retry" below).
     const client = new GuardClient({ apiKey: "pg_test", maxRetries: 0 })
     await expect(client.scan([{ role: "user", content: "hello" }], "input")).rejects.toThrow(
@@ -281,7 +281,7 @@ describe("GuardClient", () => {
       },
     })
 
-    // maxRetries: 0 — asserts the terminal invalid-JSON error shape; retry of
+    // maxRetries: 0, asserts the terminal invalid-JSON error shape; retry of
     // a transient malformed 2xx body is covered in "GuardClient retry" below.
     const client = new GuardClient({ apiKey: "pg_test", maxRetries: 0 })
     const err = await client
@@ -562,7 +562,7 @@ describe("GuardClient retry", () => {
   })
 
   test("a definitive block decision (2xx) is never retried", async () => {
-    // Enforcement invariant: a real decision is terminal — retries must not
+    // Enforcement invariant: a real decision is terminal, retries must not
     // re-run it or turn it into anything else.
     const fetchMock = jest.fn().mockResolvedValue(blockBody)
     global.fetch = fetchMock
@@ -574,7 +574,7 @@ describe("GuardClient retry", () => {
   })
 
   test("does not retry a deterministic (non-network) fetch error", async () => {
-    // A plain Error with no errno/cause is not a transient network failure —
+    // A plain Error with no errno/cause is not a transient network failure,
     // retrying just delays the inevitable GuardApiError.
     const fetchMock = jest.fn().mockRejectedValue(new Error("invalid header value"))
     global.fetch = fetchMock

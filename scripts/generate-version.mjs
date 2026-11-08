@@ -14,7 +14,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8")
 
 const outPath = path.join(root, "src", "version.ts")
 const content =
-  "// Auto-generated from package.json by scripts/generate-version.mjs — do not edit.\n" +
+  "// Auto-generated from package.json by scripts/generate-version.mjs, do not edit.\n" +
   `export const SDK_VERSION = "${pkg.version}"\n`
 
 const existing = fs.existsSync(outPath) ? fs.readFileSync(outPath, "utf-8") : null

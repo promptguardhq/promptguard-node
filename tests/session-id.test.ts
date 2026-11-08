@@ -4,8 +4,8 @@
  * The Guard API remembers a Conversation's turns when a scan names it in
  * `context.session_id`, so the id on the wire has to be the framework's own
  * conversation id: the same on every turn of one conversation, different for
- * another, and absent when the framework has none. A per-call run id — what
- * the LangChain handler used to send — makes every scan a conversation of its
+ * another, and absent when the framework has none. A per-call run id, what
+ * the LangChain handler used to send, makes every scan a conversation of its
  * own.
  *
  * The Guard API is faked at `fetch`, so each assertion reads the JSON body

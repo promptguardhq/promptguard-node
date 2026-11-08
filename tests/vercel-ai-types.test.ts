@@ -7,7 +7,7 @@
  * functions below are never called: they exist to be compiled.
  *
  * - ai@5 types its middleware and models as `LanguageModelV2*`, re-exported
- *   from `@ai-sdk/provider@2` — installed here as `ai-sdk-provider-v2`.
+ *   from `@ai-sdk/provider@2`: installed here as `ai-sdk-provider-v2`.
  * - ai@6 (`ai-v6`) types `LanguageModelMiddleware` as V3, which requires
  *   `specificationVersion: 'v3'` on the middleware object.
  * - ai@7 (`ai-v7`) is LanguageModelV4 and relaxes the middleware's version.

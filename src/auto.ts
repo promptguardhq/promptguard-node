@@ -51,7 +51,7 @@ export interface InitOptions {
   /**
    * Retry attempts for transient Guard API failures (network errors and
    * 429/5xx responses) before the `failOpen` policy governs. Default: `3`.
-   * Retries never change the eventual decision — see {@link GuardClientConfig}.
+   * Retries never change the eventual decision, see {@link GuardClientConfig}.
    */
   maxRetries?: number
   /** Base delay in ms between Guard API retries (exponential backoff). Default: `1000`. */
@@ -74,11 +74,11 @@ export interface InitOptions {
  * `@google/generative-ai`, `cohere-ai`, `@aws-sdk/client-bedrock-runtime`)
  * so every LLM call they make is scanned by the Guard API.
  *
- * **Limitation — ESM apps (dual-package hazard):** patches are applied to the
+ * **Limitation: ESM apps (dual-package hazard):** patches are applied to the
  * module instances resolved via CommonJS `require()`. If your application runs
  * as native ESM (`"type": "module"` / `.mjs`) and the provider ships separate
  * ESM builds, your `import`ed module instances can be *different objects* from
- * the patched CJS ones — in that case auto-instrumentation silently protects
+ * the patched CJS ones: in that case auto-instrumentation silently protects
  * nothing. Use {@link getAppliedPatches} as a runtime canary to verify the
  * providers you use were actually patched, and prefer the ESM-safe
  * alternatives: the LangChain callback handler
@@ -123,7 +123,7 @@ export function init(options: InitOptions = {}): void {
   // patches applied, applyPatches() already logged a warn (visible by default).
   const protecting = getAppliedPatches()
   logger.info(
-    `auto-instrumentation initialised (mode=${mode}, fail_open=${failOpen}) — ` +
+    `auto-instrumentation initialised (mode=${mode}, fail_open=${failOpen}), ` +
       `protecting: ${protecting.length ? protecting.join(", ") : "none"}`,
   )
 }
@@ -206,13 +206,13 @@ const PATCH_MODULES = [
 /**
  * Packages we know about and deliberately do NOT hook, with the same advice.
  *
- * Every one works today through the proxy — point the client's base URL at
+ * Every one works today through the proxy, point the client's base URL at
  * PromptGuard. Listing them is not a promise to hook them; it is the difference
  * between telling a customer "not instrumented, here is the one-line fix" and
  * telling them nothing while they believe they are covered.
  *
  * Frameworks are deliberately absent. LangChain's ChatOpenAI calls the `openai`
- * package underneath, which we patch, so its traffic is scanned transitively —
+ * package underneath, which we patch, so its traffic is scanned transitively,
  * warning about it would be a false alarm that trains people to ignore the real
  * ones.
  */
@@ -251,7 +251,7 @@ function isInstalled(pkg: string): boolean {
  * Not re-exported from `index.ts`: the package's public surface is unchanged,
  * and this mirrors the Python SDK's private `_known_patches()`. It exists so
  * the cross-SDK contract's `instrumentation_introspection` section can assert
- * that both SDKs name the same providers — they did not, until v1.6.0 of the
+ * that both SDKs name the same providers, they did not, until v1.6.0 of the
  * contract: this SDK reported `bedrock` while Python reported `boto3-bedrock`.
  */
 export function knownPatchNames(): string[] {
@@ -304,7 +304,7 @@ export function instrumentationReport(): {
 function warnAboutUnpatchedLibraries(): void {
   for (const pkg of detectedUnpatched()) {
     logger.warn(
-      `PromptGuard: '${pkg}' is installed but auto-instrumentation did NOT hook it — ` +
+      `PromptGuard: '${pkg}' is installed but auto-instrumentation did NOT hook it, ` +
         `calls made through it are not being scanned. Point that client at the proxy ` +
         `(set its base URL to your PromptGuard endpoint), or see ${ADVICE_URL} for the ` +
         `exact call surfaces we patch.`,
@@ -324,7 +324,7 @@ function applyPatches(): void {
       if (patchModule.apply()) {
         // apply() is idempotent per patch module, so a second init() without
         // shutdown() reports "already patched" success. Skip the push when
-        // the patch is already tracked — a duplicate entry would make the
+        // the patch is already tracked, a duplicate entry would make the
         // getAppliedPatches() canary lie and call revert() twice on
         // shutdown().
         if (!appliedPatches.some((p) => p.name === mod.name)) {
@@ -347,7 +347,7 @@ function applyPatches(): void {
 
   if (appliedPatches.length === 0) {
     logger.warn(
-      "init() applied ZERO auto-instrumentation patches — no supported LLM SDK was " +
+      "init() applied ZERO auto-instrumentation patches, no supported LLM SDK was " +
         "resolvable via CommonJS require(), so NO calls are being scanned. If your app " +
         'runs as native ESM ("type": "module" / .mjs), auto-instrumentation cannot see ' +
         "the module instances your code imports (dual-package hazard). Use the ESM-safe " +

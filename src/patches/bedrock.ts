@@ -5,7 +5,7 @@
  * Unlike the other patches which target LLM-specific SDKs, this wraps
  * the AWS SDK v3 command pattern: `client.send(new InvokeModelCommand(...))`,
  * `client.send(new ConverseCommand(...))`, and their streaming variants
- * (`InvokeModelWithResponseStreamCommand`, `ConverseStreamCommand` — input
+ * (`InvokeModelWithResponseStreamCommand`, `ConverseStreamCommand`: input
  * scanned; output scanning skipped like all streams).
  *
  * Covers all Bedrock-hosted models: Claude, Titan, Llama, Mistral, Cohere,
@@ -256,7 +256,7 @@ function redactInvokeModelBody(rawBody: unknown, redacted: GuardMessage[]): unkn
  * Map redacted guard messages back onto a Bedrock command.
  *
  * Returns `null` for shapes we cannot rewrite safely (e.g. the capitalized
- * `Messages` variant) — in enforce mode the caller escalates to a block
+ * `Messages` variant): in enforce mode the caller escalates to a block
  * rather than sending unredacted content.
  */
 export function applyRedactionToArgs(args: unknown[], redacted: GuardMessage[]): unknown[] | null {

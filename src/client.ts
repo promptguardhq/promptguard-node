@@ -1,5 +1,5 @@
 /**
- * PromptGuard proxy client — OpenAI-compatible API with built-in
+ * PromptGuard proxy client: OpenAI-compatible API with built-in
  * security scanning, retry logic, and namespace helpers.
  */
 
@@ -55,7 +55,7 @@ export interface ChatCompletionRequest {
    * OpenAI-compatible escape hatch: any additional keys (e.g. `top_p`,
    * `frequency_penalty`, `stop`, `tools`) are forwarded verbatim to the proxy.
    * Because these keys are not type-checked, a misspelled parameter is silently
-   * passed through rather than flagged at compile time — double-check the
+   * passed through rather than flagged at compile time, double-check the
    * spelling of options not listed above. (`stream: true` is the one key
    * rejected: the client parses a single JSON response body, so it throws at
    * runtime instead of forwarding.)
@@ -136,7 +136,7 @@ export interface RedTeamSummary {
 // The server returns these bodies in snake_case. The SDK normalizes them to the
 // camelCase exported types above so response-field casing is consistent
 // SDK-wide (matching GuardDecision and SecurityScanResult). The wire format is
-// unchanged — only the SDK-facing DTO is camelCased.
+// unchanged, only the SDK-facing DTO is camelCased.
 
 interface ToolValidationResultWire {
   allowed: boolean
@@ -217,7 +217,7 @@ const PROXY_BASE_URL = `${DEFAULT_BASE_URL}/proxy`
 function serializeCompletionParams(params: Record<string, unknown>): Record<string, unknown> {
   if (params.stream === true) {
     throw new PromptGuardError(
-      "streaming not yet supported by the PromptGuard proxy client — remove `stream: true`",
+      "streaming not yet supported by the PromptGuard proxy client, remove `stream: true`",
       "streaming_not_supported",
       400,
     )
@@ -243,7 +243,7 @@ export function ensureProxySuffix(baseUrl: string): string {
   try {
     url = new URL(baseUrl)
   } catch {
-    // Not a parseable absolute URL — fall back to safe string handling so we
+    // Not a parseable absolute URL, fall back to safe string handling so we
     // never throw from the constructor on an unusual but intended value.
     // Strip trailing slashes with a linear scan rather than a `/\/+$/` regex
     // (which CodeQL flags as polynomial ReDoS on many-slash input).
@@ -273,7 +273,7 @@ export function buildRequestUrl(baseUrl: string, path: string): string {
   try {
     url = new URL(baseUrl)
   } catch {
-    // Not a parseable absolute URL — keep the historical concat behavior.
+    // Not a parseable absolute URL, keep the historical concat behavior.
     return `${baseUrl}${path}`
   }
   const basePath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname
@@ -435,7 +435,7 @@ export class PromptGuard {
    *
    * The constructor appends the `/proxy` suffix when it is missing, so this is
    * frequently not the string that was passed in. Anything reporting on the
-   * client — `verify()`, a diagnostic, a support dump — has to name the URL
+   * client, `verify()`, a diagnostic, a support dump, has to name the URL
    * that was called rather than the one that was requested, or it points the
    * reader somewhere no request ever went.
    */
@@ -506,7 +506,7 @@ export class PromptGuard {
           return (await response.json()) as T
         } catch {
           // A 2xx with an unparseable body may be transient (truncation), so
-          // it stays retryable — but it must never surface as a raw
+          // it stays retryable, but it must never surface as a raw
           // SyntaxError. Wrap it so the terminal failure is a typed error.
           lastError = new PromptGuardError(
             "invalid JSON in response body",
@@ -524,7 +524,7 @@ export class PromptGuard {
       } catch (err) {
         if (err instanceof PromptGuardError) throw err
         // Deterministic pre-flight failures (circular JSON body, invalid
-        // header value) can never succeed on retry — surface them
+        // header value) can never succeed on retry, surface them
         // immediately instead of burning the full backoff schedule.
         if (!isRetryableNetworkError(err)) throw err
         lastError = err as Error

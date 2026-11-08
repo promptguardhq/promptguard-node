@@ -2,7 +2,7 @@
  * Tests for auto-instrumentation orchestration (src/auto.ts).
  *
  * None of the provider SDKs are installed in this repo, so init() exercises
- * the zero-patches path — exactly the situation a native-ESM app (or an app
+ * the zero-patches path: exactly the situation a native-ESM app (or an app
  * without any supported SDK) ends up in.
  */
 

@@ -1,8 +1,8 @@
 /**
  * Streamed output scanning in the Vercel AI SDK middleware (`wrapStream`).
  *
- * The streamed path must scan output the way `wrapGenerate` does — same text,
- * same decisions, same fail-open policy (ADR-0002) — while holding back at
+ * The streamed path must scan output the way `wrapGenerate` does, same text,
+ * same decisions, same fail-open policy (ADR-0002), while holding back at
  * most one window of the stream rather than the whole response.
  */
 

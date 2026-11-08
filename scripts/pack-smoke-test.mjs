@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Packaging smoke test — verifies the published tarball resolves under BOTH
+ * Packaging smoke test: verifies the published tarball resolves under BOTH
  * module systems for every exports entry.
  *
  * Guards against regressions like exports entries missing a `default`
@@ -91,7 +91,7 @@ try {
   })
 
   // Named exports only: there must be NO default export (a default export is an
-  // ESM footgun — `import PromptGuard from 'promptguard-sdk'` would bind to the
+  // ESM footgun: `import PromptGuard from 'promptguard-sdk'` would bind to the
   // namespace object, not the class). Guard both module systems so the removal
   // can't silently regress.
   check("no default export (CJS)", () => {
@@ -113,7 +113,7 @@ try {
         "-e",
         `import * as ns from ${JSON.stringify(pkg.name)}\n` +
           `if ("default" in ns && typeof ns.default?.name === "string" && ns.default.name === "PromptGuard") ` +
-          `throw new Error("default export resolves to the PromptGuard class — footgun reintroduced")\n` +
+          `throw new Error("default export resolves to the PromptGuard class, footgun reintroduced")\n` +
           `const { PromptGuard } = ns\n` +
           `if (typeof PromptGuard !== "function") throw new Error("named PromptGuard export missing")`,
       ],
@@ -121,7 +121,7 @@ try {
     )
   })
 
-  // Types resolve under classic `moduleResolution: "node"` — the CJS-first
+  // Types resolve under classic `moduleResolution: "node"`: the CJS-first
   // mode most consumers (and this repo's own tsconfig) use. Classic node
   // ignores the package `exports` map, so the documented subpath imports
   // (`/auto`, `/guard`, `/integrations/*`) resolve types ONLY via the
@@ -252,7 +252,7 @@ try {
   // ai@7 is ESM-only and this package is CommonJS, so the packed
   // `promptguard()` is run under the real ai@7 (the `ai-v7` devDependency):
   // a generated call is scanned both ways with the model's id, and a blocked
-  // stream surfaces as the README says — blocked output throws from
+  // stream surfaces as the README says, blocked output throws from
   // `textStream` without calling `onError`; a blocked prompt goes to
   // `onError` and `textStream` ends empty. The Guard API is stubbed.
   const aiV7 = (file) =>

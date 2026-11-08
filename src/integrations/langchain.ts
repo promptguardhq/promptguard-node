@@ -46,7 +46,7 @@ export interface PromptGuardCallbackOptions extends GuardClientConfig {
   /**
    * Also scan LLM/tool outputs (default: `false`, consistent with `init()`
    * and the Vercel AI middleware). Enable explicitly if you want output
-   * scanning — every scan is a billable Guard API call.
+   * scanning: every scan is a billable Guard API call.
    */
   scanResponses?: boolean
   failOpen?: boolean
@@ -59,7 +59,7 @@ export interface PromptGuardCallbackOptions extends GuardClientConfig {
   /** Convenience shorthand for `logLevel: "silent"`. */
   silent?: boolean
   /**
-   * The Conversation to name when a call carries no thread id of its own —
+   * The Conversation to name when a call carries no thread id of its own,
    * for a handler that serves one conversation. A call's `thread_id` (or
    * `session_id` / `conversation_id`) in its metadata always wins. Without
    * either, no session id is sent.
@@ -120,7 +120,7 @@ export class PromptGuardCallbackHandler {
    * which catches handler errors and merely `console.error`s them unless
    * `handler.raiseError` is true. Without this, a
    * {@link PromptGuardBlockedError} thrown in enforce mode would be
-   * swallowed and the LLM call would proceed — i.e. enforce mode would not
+   * swallowed and the LLM call would proceed, i.e. enforce mode would not
    * actually block.
    */
   readonly raiseError = true
@@ -365,7 +365,7 @@ export class PromptGuardCallbackHandler {
       if (this.mode === "enforce") {
         // Callbacks cannot rewrite the in-flight call's inputs, so the
         // redaction cannot be applied. Proceeding would silently send the
-        // content the Guard API asked us to redact — escalate to a block.
+        // content the Guard API asked us to redact, escalate to a block.
         logger.error(
           `redact decision cannot be applied from a LangChain callback; ` +
             `escalating to block (event=${decision.eventId}, run=${runId})`,

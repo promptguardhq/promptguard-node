@@ -19,7 +19,7 @@ let patched = false
 /**
  * Flatten an Anthropic `system` param (string or content-block array) into
  * guard-message text. Returns `null` when no system guard-message would be
- * emitted (absent, or an array with no text blocks) — the single source of
+ * emitted (absent, or an array with no text blocks), the single source of
  * truth for the redaction index offset in {@link applyRedactionToArgs}.
  */
 export function systemToGuardContent(system: unknown): string | null {
@@ -93,7 +93,7 @@ export function extractResponseContent(response: unknown): string | null {
  *
  * The redaction offset is computed from whether a system guard-message was
  * actually emitted by {@link messagesToGuardFormat} (via
- * {@link systemToGuardContent}) — not merely from `system` being present —
+ * {@link systemToGuardContent}), not merely from `system` being present,
  * so an array system with no text blocks does not shift indices.
  */
 export function applyRedactionToArgs(

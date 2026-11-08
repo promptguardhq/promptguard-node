@@ -3,8 +3,8 @@
  *
  * The Guard API remembers a Conversation's turns when a scan names it in
  * `context.session_id`. An integration must send the framework's real
- * conversation id there — the same value on every turn of one conversation, a
- * different one for another — or nothing at all. A per-call run id would make
+ * conversation id there: the same value on every turn of one conversation, a
+ * different one for another, or nothing at all. A per-call run id would make
  * every scan a conversation of its own.
  */
 

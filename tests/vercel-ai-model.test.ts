@@ -1,5 +1,5 @@
 /**
- * `promptguard(model)` — the Vercel AI SDK model wrapper.
+ * `promptguard(model)`: the Vercel AI SDK model wrapper.
  *
  * The wrapper must behave exactly like `promptGuardMiddleware` applied with
  * the AI SDK's own `wrapLanguageModel`, generated and streamed, while leaving

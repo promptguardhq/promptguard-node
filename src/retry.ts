@@ -14,7 +14,7 @@
  *    concurrent clients don't retry in lockstep.
  *
  * Deterministic pre-flight failures (circular-JSON body, invalid header value)
- * are NOT retryable — retrying them just delays the real error.
+ * are NOT retryable: retrying them just delays the real error.
  */
 
 /** HTTP status codes worth retrying (transient server/rate-limit failures). */

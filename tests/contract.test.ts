@@ -314,7 +314,7 @@ describe("Contract: Redaction enforcement", () => {
  *
  * Everything above describes the wire: what the Guard API sends and what this
  * SDK must make of it. This block describes what auto-instrumentation says
- * about *itself* — the part a customer asserts on in their own CI, and which
+ * about *itself*: the part a customer asserts on in their own CI, and which
  * matched the Python SDK only by memory until the contract grew this section.
  *
  * `../src/auto` is mocked at the top of this file for the redaction cases, so

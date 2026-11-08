@@ -301,7 +301,7 @@ describe("Retry logic", () => {
 
   test("does not retry deterministic non-network errors", async () => {
     global.fetch = jest.fn().mockImplementation(() => {
-      // e.g. an invalid header value — undici throws before dispatch,
+      // e.g. an invalid header value, undici throws before dispatch,
       // without the "fetch failed" message or a cause.
       throw new TypeError("invalid header value")
     })
