@@ -16,9 +16,9 @@ pre-commit install          # tracked hooks, once per clone (commit + push stage
 ## Before you hand back a change
 
 After editing TypeScript, run `npm run format` then `npm run check` (Biome is
-the only linter and formatter here). The CI gate, reproduced locally, is
-`npm run lint && npm test && npm run build`; `lint` is `tsc --noEmit` plus
-Biome. Run tests through `npm test`: it starts Jest under
+the only linter and formatter here). **The CI gate, reproduced locally, is
+`bash scripts/check.sh`** (after `npm ci`): Biome, `tsc --noEmit`, the tests,
+the build and the pack smoke test. The pre-push hook runs it. Run tests through `npm test`: it starts Jest under
 `--experimental-vm-modules`, which a bare `jest` call omits. Coverage
 thresholds in `jest.config.js` fail the suite; add tests rather than lowering
 them. Commands, coverage and CI jobs: `CONTRIBUTING.md`.
