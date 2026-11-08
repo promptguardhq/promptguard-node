@@ -15,6 +15,9 @@ python3 scripts/check_no_github_secrets.py --check
 python3 scripts/check_agent_files.py --check
 python3 scripts/check_no_dashes.py --check
 
+step "architecture fitness: zero runtime deps, lazy peers, integration layering"
+node scripts/check-architecture.mjs
+
 step "lint: biome + tsc"
 npx biome check .
 npx tsc --noEmit

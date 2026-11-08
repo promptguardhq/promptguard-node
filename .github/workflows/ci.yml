@@ -55,6 +55,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Structural rules lint cannot see: zero runtime dependencies, optional
+      # peers loaded lazily, integrations and patches layered apart. The rules
+      # are in the script's header. Dependency-free, so no npm ci needed for it.
+      - name: Architecture fitness check
+        run: node scripts/check-architecture.mjs
+
       - name: Biome check (lint + format)
         run: npx biome check .
 

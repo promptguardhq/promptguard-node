@@ -27,6 +27,14 @@ the build and the pack smoke test. The pre-push hook runs it. Run tests through 
 thresholds in `jest.config.js` fail the suite; add tests rather than lowering
 them. Commands, coverage and CI jobs: `CONTRIBUTING.md`.
 
+`scripts/check-architecture.mjs` (run by `scripts/check.sh` and CI's lint job)
+enforces the shape rules below mechanically: zero runtime dependencies, every
+peer optional and loaded lazily inside a function, integrations independent of
+each other, patches reached only through `auto.ts`. Every other suite is
+mocked; `tests/live.test.ts` calls the real API (staging unless
+`PROMPTGUARD_LIVE_BASE_URL` says otherwise) and is skipped unless
+`PROMPTGUARD_LIVE_API_KEY` is set: `npm test -- tests/live.test.ts --coverage=false`.
+
 ## Rules
 
 - **Public API**: keep it small (`init()`, the `PromptGuard` client, framework
