@@ -1,5 +1,9 @@
 # AGENTS.md
 
+| Owner | Last reviewed |
+|---|---|
+| @cto | 2026-11-09 |
+
 Node.js SDK for PromptGuard, published as `promptguard-sdk` on npm from a
 public repo. It secures LLM calls three ways: the `PromptGuard` client (proxy
 mode), `init()` auto-instrumentation that patches installed provider SDKs, and
@@ -64,6 +68,8 @@ identifiers, as variables (`vars.*`). A workflow that names any `secrets.*` but
 and how to add a secret with its per-secret grant:
 [`ENVIRONMENT_VARIABLES.md` § CI/CD-only](https://github.com/promptguardhq/promptguard/blob/main/docs/04_engineering/reference/ENVIRONMENT_VARIABLES.md#cicd-only)
 in the platform repo.
+
+`.claude/settings.json` (committed) denies Claude Code reads of real `.env` files, and hand-edits of generated API types, `src/version.ts` and the synced guard contract (regenerate them instead). Machine-only permissions go in `.claude/settings.local.json`.
 
 ## Agent skills
 

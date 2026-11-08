@@ -18,6 +18,10 @@ never loads costs a session silently. Four checks:
    (or to the same file) or imports it with an `@AGENTS.md` line. Claude Code
    loads `CLAUDE.md`, not `AGENTS.md`, so without one the rules never reach a
    Claude session.
+5. Freshness: the root `AGENTS.md` carries a `| Owner | Last reviewed |` table,
+   and no agent file's `Last reviewed` date is older than 180 days. A file
+   nobody has re-read against the code in half a year is sediment an agent
+   still believes.
 
 
     python3 scripts/check_agent_files.py --check
@@ -26,6 +30,7 @@ never loads costs a session silently. Four checks:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import os
 import re
 import subprocess
@@ -33,7 +38,12 @@ import sys
 import unicodedata
 from pathlib import Path
 
+
 DEFAULT_MAX_LINES = 200
+DEFAULT_STALE_DAYS = 180
+REVIEWED = re.compile(
+    r"\|\s*Owner\s*\|\s*Last reviewed\s*\|.*?\n.*?\n\|[^|]*\|\s*(\d{4}-\d{2}-\d{2})", re.S
+)
 
 LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]*)(?:\s+\"[^\"]*\")?\)")
 FENCE = re.compile(r"^\s*(```|~~~)")
@@ -172,6 +182,31 @@ def check_budget(root: Path, max_lines: int, errors: list[str]) -> None:
         )
 
 
+def check_freshness(root: Path, picked: list[str], stale_days: int, errors: list[str]) -> None:
+    today = dt.date.today()
+    seen: set[Path] = set()
+    # The root file first, so a symlinked root is judged as the root.
+    for rel in sorted(picked, key=lambda r: r != "AGENTS.md"):
+        real = (root / rel).resolve()
+        if not real.is_file() or real in seen:
+            continue
+        seen.add(real)
+        m = REVIEWED.search(real.read_text("utf-8", "replace"))
+        if m is None:
+            if rel == "AGENTS.md":
+                errors.append(
+                    "AGENTS.md: no `| Owner | Last reviewed |` table. Add one under the "
+                    "title so drift has a date to measure against."
+                )
+            continue
+        age = (today - dt.date.fromisoformat(m.group(1))).days
+        if age > stale_days:
+            errors.append(
+                f"{rel}: last reviewed {m.group(1)}, {age} days ago (limit {stale_days}). "
+                "Re-read it against the code, fix what drifted, then update the date."
+            )
+
+
 def check_claude_md(root: Path, files: list[str], errors: list[str]) -> None:
     agents_md = [rel for rel in files if rel.rsplit("/", 1)[-1] == "AGENTS.md"]
     # An AGENTS.md that another one symlinks to (the monorepo's `.ai/AGENTS.md`)
@@ -200,8 +235,7 @@ def check_claude_md(root: Path, files: list[str], errors: list[str]) -> None:
                 errors.append(f"{shown}: symlink does not resolve to AGENTS.md. {fix}")
         elif not re.search(r"(?m)^@AGENTS\.md\s*$", claude.read_text("utf-8", "replace")):
             errors.append(
-                f"{shown}: a regular file that does not import AGENTS.md, so the two "
-                f"drift. {fix}"
+                f"{shown}: a regular file that does not import AGENTS.md, so the two drift. {fix}"
             )
 
 
@@ -210,6 +244,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="exit 1 on any problem")
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--max-lines", type=int, default=DEFAULT_MAX_LINES)
+    parser.add_argument("--stale-days", type=int, default=DEFAULT_STALE_DAYS)
     args = parser.parse_args()
 
     root = git_root(args.root)
@@ -224,6 +259,7 @@ def main() -> int:
             check_links(root, rel, errors)
             check_placeholders(root, rel, errors)
     check_budget(root, args.max_lines, errors)
+    check_freshness(root, picked, args.stale_days, errors)
     check_claude_md(root, files, errors)
 
     for e in errors:
