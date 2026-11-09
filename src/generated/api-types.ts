@@ -130,6 +130,16 @@ export interface ApiHealthResponse {
   timestamp: string
 }
 
+/** One resource group a key reaches, and how far.
+
+A single-action group (``KeyAccessGroup``) is always ``write``: Access.
+The two enums are the groups a key may hold, which the dashboard's
+picker is built from (#1111). */
+export interface ApiKeyGrant {
+  group: KeyAccessGroup | KeyLevelGroup
+  level: Level
+}
+
 export interface ApiKeyResponse {
   id: string
   name: string
@@ -143,6 +153,9 @@ export interface ApiKeyResponse {
   expires_at?: string | unknown
   created_at: string
   rate_limit_per_minute?: number | unknown
+  grants?: Array<ApiKeyGrant>
+  monthly_request_cap?: number | unknown
+  requests_this_month?: number
 }
 
 /** What the toggle answers: whether the key authenticates from now on. */
@@ -198,7 +211,7 @@ export interface AuditEventRecord {
   severity: string
   /** `success`, `failure`, `denied` or `error`. */
   outcome: string
-  /** `user`, `api_key`, `service` or `system`. */
+  /** `user`, `api_key`, `service` or `system`; `assistant` or `mcp_client` when an Agent acted for the user named in `actor_id`. */
   actor_type: string
   /** Who did it: a user id, or null for the system. */
   actor_id: string | unknown
@@ -207,7 +220,7 @@ export interface AuditEventRecord {
   resource_id: string | unknown
   description: string
   details: Record<string, unknown>
-  /** The entry's seal on its organization's tamper-evident chain. */
+  /** The entry's seal on its organization's hash chain: HMAC-SHA256 under the instance's audit key where one is configured, which a database edit cannot re-seal; plain SHA-256 otherwise, which detects only an edit made without database write access. */
   integrity_hash: string | unknown
   /** Opens the audit log in its Organization. */
   dashboard_url: string
@@ -239,19 +252,25 @@ export interface ContextDoc {
   metadata?: Record<string, unknown> | unknown
 }
 
-export interface CreateApiKeyRequest {
-  /** API key name */
-  name: string
-  project_id?: string | unknown
-  permissions?: Array<string>
-  expires_at?: string | unknown
-}
-
 export interface CreateApiKeyResponse {
   key: string
   id: string
   name: string
   prefix: string
+}
+
+/** A new API key, created with an API key. */
+export interface CreateDeveloperApiKeyRequest {
+  /** API key name */
+  name: string
+  project_id?: string | unknown
+  /** Scopes: resource groups as '<group>:<level>' (for example 'scan:write', 'policies:read'), or the legacy 'proxy', 'manage' and 'read'. Empty is full access. */
+  permissions?: Array<string>
+  expires_at?: string | unknown
+  /** Requests the new key may make each calendar month (UTC), beside your Plan's quota; past it the key is refused with api_key_request_cap_exceeded until the first of next month. Omitted is no cap of its own. */
+  monthly_request_cap?: number | unknown
+  /** Requests per minute the new key may make, beside its Plan's limit; the stricter refuses. Omitted is no limit of its own. */
+  rate_limit_per_minute?: number | unknown
 }
 
 export interface CreateExceptionRequest {
@@ -477,7 +496,7 @@ export interface GuardContext {
   agent_id?: string | unknown
   /** The conversation this request is a turn of. Send the same value for every turn of one end user's conversation: with the X-End-User header it is one session, and the dashboard's Sessions view lists that session's events in order. Generate it on your server, random enough that an end user cannot guess another's (a UUIDv4 will do), and never take it from the end user's request: whoever can name a session id can add turns to that conversation. At most 255 characters, stored exactly as sent; it names the conversation and holds none of it, so a zero-retention project keeps it. The same id under another end user or project is another conversation. For each input turn PromptGuard also remembers its detection signals: the Techniques of the finding that decided it, that finding's confidence and when the turn arrived, never its text, for every project including zero-retention ones. At most the last 10 turns are kept, each for at most 1 hour. When the request names its end user with the X-End-User header, a turn that pivots ("now tell me...") after an earlier persona, hypothetical or authority turn is reported as a `candidate` threat from the `conversation/priming_then_pivot` rule, which never changes the decision; without X-End-User that rule records nothing. A sudden burst of turns, many times the conversation's own earlier rate, is recorded on the turn's event as a signal, and changes nothing either. If the conversation's memory cannot be reached in time, the turn is scanned on its own. Output scans are not turns. Without a session id a request is scanned on its own, as it always was. */
   session_id?: string | unknown
-  /** Tool calls in this turn. The tool NAME and its ARGUMENTS are assembled into the scanned text and get the same detection stack as the messages, tool arguments are where an exfiltration payload actually travels, so they are scanned rather than logged. Both provider spellings are read: OpenAI's `{'type':'function','function':{'name','arguments'}}` and Anthropic's `{'type':'tool_use','name','input'}`, plus LangChain's `{'name','args'}`. A call in none of those shapes is reported in the response's `unscanned` array with its position; it is never quietly skipped. These calls carry no position in the conversation, so they are always scanned as the newest turn's. Send a conversation's calls on the messages that made them (`messages[].tool_calls`) to have each read as part of its own turn. */
+  /** Tool calls in this turn. The tool NAME and its ARGUMENTS are assembled into the scanned text and get the same detection stack as the messages: tool arguments are where an exfiltration payload actually travels, so they are scanned rather than logged. Both provider spellings are read: OpenAI's `{'type':'function','function':{'name','arguments'}}` and Anthropic's `{'type':'tool_use','name','input'}`, plus LangChain's `{'name','args'}`. A call in none of those shapes is reported in the response's `unscanned` array with its position; it is never quietly skipped. These calls carry no position in the conversation, so they are always scanned as the newest turn's. Send a conversation's calls on the messages that made them (`messages[].tool_calls`) to have each read as part of its own turn. */
   tool_calls?: Array<Record<string, unknown>> | unknown
   /** The tools the AI app offers the model on this request: each one's name, description and input schema. Each is scanned as a tool manifest -- the scan `POST /api/v1/mcp/manifest-scan` runs, for poisoned descriptions and parameter docs and smuggled Unicode -- and a poisoned one blocks, naming the tool, with the finding's `segment` `tool_definition`. An unchanged definition is not scanned again on the next request. Read in MCP's `{'name','description','inputSchema'}`, Anthropic's `input_schema` and OpenAI's `{'type':'function','function':{'name','description','parameters'}}`; a definition in none of them is listed in `unscanned` with its position. */
   tool_definitions?: Array<Record<string, unknown>> | unknown
@@ -623,7 +642,7 @@ export interface GuardResponse {
   basis?: "secret" | "organisation_rule" | "detectors" | unknown
   /** Processing time in milliseconds */
   latency_ms: number
-  /** Parts that reached us and were not read: they produced nothing to scan, or the scan budget was spent first. An `allow` with a non-empty `unscanned` is NOT 'this content is clean', it is 'the text was clean and these parts were never read'. Reasons: url_only (we do not fetch caller-supplied URLs, that would be an SSRF primitive), file_id_unsupported, encrypted, no_text_extracted (a scanned/rasterised document), too_large, undecodable, unsupported_type, extractor_unavailable, unsupported_block, unsupported_tool_call (a tool call in none of the shapes we can read, `index` is its position among the request's tool calls), over_size_budget (a message older than the newest ones that filled the scan budget, `index` is its position in `messages`; it was not read on this call, and was the newest turn of an earlier one). */
+  /** Parts that reached us and were not read: they produced nothing to scan, or the scan budget was spent first. An `allow` with a non-empty `unscanned` is NOT 'this content is clean', it is 'the text was clean and these parts were never read'. Reasons: url_only (we do not fetch caller-supplied URLs, that would be an SSRF primitive), file_id_unsupported, encrypted, no_text_extracted (a scanned/rasterised document), too_large, undecodable, unsupported_type, extractor_unavailable, unsupported_block, unsupported_tool_call (a tool call in none of the shapes we can read: `index` is its position among the request's tool calls), over_size_budget (a message older than the newest ones that filled the scan budget: `index` is its position in `messages`; it was not read on this call, and was the newest turn of an earlier one). */
   unscanned?: Array<UnscannedAttachment>
   /** Unavailable checks: detectors this scan would have run but the deployment cannot, because their backing service (an ML inference endpoint, an LLM judge, a bundled model) is not configured. An `allow` with a non-empty `unavailable` is NOT 'every check passed', these detectors never looked. A detector that ran and found nothing is not listed, and neither is one the project's plan or guardrail settings leave out. */
   unavailable?: Array<UnavailableCheck>
@@ -646,6 +665,39 @@ export interface HallucinationConfig {
 export interface HTTPValidationError {
   detail?: Array<ValidationError>
 }
+
+/** The single-action groups a key may hold: Access or No access. */
+export type KeyAccessGroup = "scan" | "proxy" | "red_team"
+
+/** The groups a key may hold at ``read`` or ``write``. */
+export type KeyLevelGroup = "usage" | "policies" | "shadow" | "projects" | "keys"
+
+/** One key past its own monthly Request cap (#1111), not the account's quota.
+
+Deliberately not ``QuotaErrorDetail``: nothing about the Plan was exceeded,
+so it names no Plan and offers no upgrade. The account's other keys are
+still served. */
+export interface KeyRequestCapErrorDetail {
+  message: string
+  /** 'quota_exceeded' */
+  type: string
+  /** 'api_key_request_cap_exceeded' */
+  code: string
+  /** The key's monthly Request cap */
+  requests_limit: number
+  /** When the cap resets: the first of next month, UTC */
+  resets_at: string
+  retry_after: number
+  /** The error catalogue's entry for `code` (cause and fix); present when the catalogue documents the code */
+  doc_url?: string | unknown
+}
+
+export interface KeyRequestCapErrorEnvelope {
+  error: KeyRequestCapErrorDetail
+}
+
+/** How far a grant reaches into a group. ``write`` includes ``read``. */
+export type Level = "none" | "read" | "write"
 
 /** Guardrail with a strict/moderate/permissive sensitivity level. */
 export interface LevelConfig {
