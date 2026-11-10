@@ -13,6 +13,30 @@ survives three releases is a changelog nobody is maintaining.
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-11-10
+
+**No behaviour change.** Generated types, message punctuation and development
+tooling only.
+
+### Changed
+
+- **Generated API types synced from the published developer spec** (#62).
+  API keys gain `grants`, `monthly_request_cap` and `requests_this_month`;
+  `CreateApiKeyRequest` becomes `CreateDeveloperApiKeyRequest`, with
+  `monthly_request_cap` and `rate_limit_per_minute`; the new
+  `KeyRequestCapErrorEnvelope` describes the `api_key_request_cap_exceeded`
+  refusal. The generated module is not exported, so no import changes.
+- **Log and error messages use plain punctuation.** Em and en dashes in
+  warnings and error messages are now commas, colons or full stops. Code
+  that matches those messages by exact text should be checked.
+
+### Internal
+
+- `bash scripts/check.sh` is one local command equal to CI, run by the
+  pre-push hook; an architecture fitness check (zero runtime dependencies,
+  lazy optional peers, integration layering) and an opt-in live test against
+  the real API join it. Agent files and em/en dashes are gated in CI.
+
 ## [2.5.0] - 2026-11-03
 
 **No runtime change.** Generated types, packaging metadata and development
