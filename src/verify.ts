@@ -5,8 +5,8 @@
  * open, so an invalid key, an unreachable Guard API, or a provider SDK we never
  * hooked all produce an application that runs perfectly and blocks nothing.
  * Each of those logs a warning, but a warning in a log nobody tails is
- * indistinguishable from silence, and in a native-ESM app, where
- * auto-instrumentation may not attach at all, that silence is the default.
+ * indistinguishable from silence, and in an ES module app started without
+ * `--import promptguard-sdk/register`, that silence is the default.
  *
  * `verify()` is the positive check: it makes real calls and reports what came
  * back, so "we are protected" becomes something to assert rather than assume:
@@ -202,15 +202,16 @@ export async function verify(options: VerifyOptions = {}): Promise<VerifyReport>
   } else {
     // Nothing patched is only a problem for auto-instrumentation users; proxy
     // clients are protected without a single patch, so this cannot be a
-    // failure. It is the expected state in a native-ESM app, which is exactly
-    // where someone needs to be told rather than left to assume.
+    // failure. It is the expected state in an ES module app started without
+    // the loader, which is exactly where someone needs to be told rather than
+    // left to assume.
     checks.push(
       check(
         "instrumentation",
         "warn",
         "no provider SDKs patched - expected if you use the proxy client, " +
           "a problem if you called init() and expect auto-instrumentation " +
-          "(common in native-ESM apps)",
+          "(in an ES module app, start Node with node --import promptguard-sdk/register)",
       ),
     )
   }

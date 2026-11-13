@@ -17,15 +17,35 @@
  * So the exported `GoogleGenAI` constructor is swapped for a subclass that
  * wraps the instance methods after `super()` has created them. Public API only,
  * no reliance on the `*Internal` methods, which are unstable by name.
+ *
+ * The ES module build (patched through the `register` entry) cannot have an
+ * export swapped: a module namespace is read-only. There the constructor's
+ * own `this.models = new Models(...)` assignment is caught instead, by a
+ * `models` setter on `GoogleGenAI.prototype` that wraps the instance methods
+ * and then stores `models` as an ordinary own property. Verified against
+ * `@google/genai` 3.3.0, which assigns `models` in the constructor.
  */
 
 import type { GuardMessage } from "../guard"
-import { createPatchedMethod } from "./base"
+import { createPatchedMethod, type ModuleLoader } from "./base"
 
 export const NAME = "google-genai"
 
 /** Package names that mean this patch is relevant. See `auto.ts`. */
 export const DETECTS = ["@google/genai"]
+
+const PACKAGE = "@google/genai"
+
+/** The modules this patch loads, for the `register` entry to `import()`. */
+export const SPECIFIERS = [PACKAGE]
+
+/** The CommonJS build, through a literal `require()` bundlers can see. */
+function requireCjs(_specifier: string): unknown {
+  return require("@google/genai")
+}
+
+/** Marks the `models` setter this patch installs on an ES module build. */
+const MODELS_HOOK = Symbol.for("promptguard-sdk.genai-models-hook")
 
 let originalConstructor: unknown = null
 let patched = false
@@ -152,18 +172,65 @@ export function applyRedactionToArgs(args: unknown[], redacted: GuardMessage[]):
 
 const WRAPPED_METHODS = ["generateContent", "generateContentStream"]
 
-export function apply(): boolean {
-  if (patched) return true
+function wrapModels(models: Record<string, unknown> | undefined): void {
+  if (!models) return
+  for (const method of WRAPPED_METHODS) {
+    const original = models[method]
+    if (typeof original !== "function") continue
+    models[method] = createPatchedMethod((original as (...a: unknown[]) => unknown).bind(models), {
+      framework: NAME,
+      extractMessages: (a: unknown[]) => extractMessages(a),
+      extractResponseText,
+      applyRedaction: applyRedactionToArgs,
+    })
+  }
+}
 
+/** An ES module namespace object (read-only exports), as opposed to `module.exports`. */
+function isModuleNamespace(mod: unknown): boolean {
+  return Object.prototype.toString.call(mod) === "[object Module]"
+}
+
+/** The ES module build: catch the constructor's `this.models = ...` assignment. */
+function hookModelsAssignment(proto: object): boolean {
+  const existing = Object.getOwnPropertyDescriptor(proto, "models")
+  // Ours already, or a real accessor of the SDK's that must not be clobbered.
+  if (existing) return Boolean(existing.set && MODELS_HOOK in existing.set)
+  const set = function (this: object, models: unknown): void {
+    wrapModels(models as Record<string, unknown> | undefined)
+    Object.defineProperty(this, "models", {
+      value: models,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    })
+  }
+  Object.defineProperty(set, MODELS_HOOK, { value: true })
+  Object.defineProperty(proto, "models", { get: () => undefined, set, configurable: true })
+  return true
+}
+
+function unhookModelsAssignment(proto: object): void {
+  const existing = Object.getOwnPropertyDescriptor(proto, "models")
+  if (existing?.set && MODELS_HOOK in existing.set) {
+    Reflect.deleteProperty(proto, "models")
+  }
+}
+
+export function apply(load: ModuleLoader = requireCjs): boolean {
   let mod: Record<string, unknown>
   try {
-    mod = require("@google/genai")
+    mod = load(PACKAGE) as Record<string, unknown>
   } catch {
     return false
   }
 
-  const Original = mod.GoogleGenAI as (new (...args: unknown[]) => unknown) | undefined
+  const Original = mod?.GoogleGenAI as (new (...args: unknown[]) => unknown) | undefined
   if (typeof Original !== "function") return false
+
+  if (isModuleNamespace(mod)) return hookModelsAssignment(Original.prototype)
+
+  if (patched) return true
 
   const descriptor = Object.getOwnPropertyDescriptor(mod, "GoogleGenAI")
   if (descriptor && descriptor.writable === false && descriptor.configurable === false) return false
@@ -173,21 +240,7 @@ export function apply(): boolean {
   ) => Record<string, unknown>) {
     constructor(...args: unknown[]) {
       super(...args)
-      const models = this.models as Record<string, unknown> | undefined
-      if (!models) return
-      for (const method of WRAPPED_METHODS) {
-        const original = models[method]
-        if (typeof original !== "function") continue
-        models[method] = createPatchedMethod(
-          (original as (...a: unknown[]) => unknown).bind(models),
-          {
-            framework: NAME,
-            extractMessages: (a: unknown[]) => extractMessages(a),
-            extractResponseText,
-            applyRedaction: applyRedactionToArgs,
-          },
-        )
-      }
+      wrapModels(this.models as Record<string, unknown> | undefined)
     }
   }
 
@@ -206,17 +259,28 @@ export function apply(): boolean {
   return true
 }
 
-export function revert(): void {
+export function revert(load: ModuleLoader = requireCjs): void {
+  let mod: Record<string, unknown>
+  try {
+    mod = load(PACKAGE) as Record<string, unknown>
+  } catch {
+    // Package went away between apply() and revert(); nothing to restore.
+    return
+  }
+  if (isModuleNamespace(mod)) {
+    const Ctor = mod?.GoogleGenAI as { prototype?: object } | undefined
+    if (Ctor?.prototype) unhookModelsAssignment(Ctor.prototype)
+    return
+  }
   if (!patched) return
   try {
-    const mod = require("@google/genai") as Record<string, unknown>
     Object.defineProperty(mod, "GoogleGenAI", {
       value: originalConstructor,
       writable: true,
       configurable: true,
     })
   } catch {
-    // Package went away between apply() and revert(); nothing to restore.
+    // Not redefinable any more; nothing to restore.
   }
   originalConstructor = null
   patched = false

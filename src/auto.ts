@@ -33,6 +33,24 @@ let scanResponses = false
 
 const appliedPatches: Array<{ name: string; revert: () => void }> = []
 
+/**
+ * ES module builds. A provider that ships separate CommonJS and ES module
+ * builds has two copies of every class: `init()` patches the CommonJS copy,
+ * and an ES module app's `import OpenAI from "openai"` uses the other one.
+ *
+ * `esmPatched` holds the patches the `register` entry applied to the ES module
+ * copies (`node --import promptguard-sdk/register app.js`). They stay in place
+ * for the life of the process: without a Guard client (before `init()`, after
+ * `shutdown()`) a patched method calls straight through.
+ *
+ * `esmUnpatched` holds the patches whose ES module copy is in use but was not
+ * patched, decided by `init()`. They are left out of `getAppliedPatches()`, so
+ * a startup check on it fails instead of passing while calls go unscanned.
+ */
+const esmPatched = new Set<string>()
+const esmUnpatched = new Map<string, string>()
+let esmRegisterRan = false
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -74,17 +92,13 @@ export interface InitOptions {
  * `@google/generative-ai`, `cohere-ai`, `@aws-sdk/client-bedrock-runtime`)
  * so every LLM call they make is scanned by the Guard API.
  *
- * **Limitation: ESM apps (dual-package hazard):** patches are applied to the
- * module instances resolved via CommonJS `require()`. If your application runs
- * as native ESM (`"type": "module"` / `.mjs`) and the provider ships separate
- * ESM builds, your `import`ed module instances can be *different objects* from
- * the patched CJS ones: in that case auto-instrumentation silently protects
- * nothing. Use {@link getAppliedPatches} as a runtime canary to verify the
- * providers you use were actually patched, and prefer the ESM-safe
- * alternatives: the LangChain callback handler
- * (`promptguard-sdk/integrations/langchain`), the Vercel AI SDK middleware
- * (`promptguard-sdk/integrations/vercel-ai`), or explicit `GuardClient.scan()`
- * calls. See README "Limitations: ESM apps".
+ * **ES module apps:** `init()` patches the providers' CommonJS builds. A
+ * provider that also ships an ES module build (`openai`, `@anthropic-ai/sdk`,
+ * `@google/genai`, `@google/generative-ai`) has a second copy of its classes,
+ * the one a native ES module app's `import` gets. Start Node with
+ * `node --import promptguard-sdk/register app.js` to patch those copies too.
+ * Without it, `init()` warns for each such provider and
+ * {@link getAppliedPatches} leaves it out. See README "ES module apps".
  *
  * When zero patches could be applied, a warning is logged so a
  * misconfiguration never fails silently.
@@ -164,10 +178,10 @@ export function shouldScanResponses(): boolean {
  * Runtime canary: the names of the auto-instrumentation patches that were
  * actually applied by {@link init} (e.g. `["openai", "anthropic"]`).
  *
- * Because patches attach to the CJS-resolved provider modules, an ESM app can
- * call `init()` successfully and still be unprotected (see the dual-package
- * hazard note on {@link init}). Assert on this at startup when you rely on
- * enforce mode:
+ * A provider is left out when an ES module app uses the provider's separate
+ * ES module build and that build is not patched (Node was not started with
+ * `--import promptguard-sdk/register`); `init()` warns about it too. Assert on
+ * this at startup when you rely on enforce mode:
  *
  * @example
  * ```ts
@@ -178,7 +192,7 @@ export function shouldScanResponses(): boolean {
  * ```
  */
 export function getAppliedPatches(): string[] {
-  return appliedPatches.map((p) => p.name)
+  return appliedPatches.map((p) => p.name).filter((name) => !esmUnpatched.has(name))
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +248,7 @@ const KNOWN_UNPATCHED = [
 ]
 
 const ADVICE_URL = "https://docs.promptguard.co/integrations/auto-instrumentation"
+const ESM_ADVICE_URL = "https://github.com/promptguardhq/promptguard-node#es-module-apps"
 
 function isInstalled(pkg: string): boolean {
   try {
@@ -301,8 +316,193 @@ export function instrumentationReport(): {
   }
 }
 
+// ---------------------------------------------------------------------------
+// ES module builds
+// ---------------------------------------------------------------------------
+
+type PatchModule = {
+  apply: (load?: (specifier: string) => unknown) => boolean
+  revert: (load?: (specifier: string) => unknown) => void
+  SPECIFIERS?: string[]
+}
+
+function loadPatchModule(path: string): PatchModule {
+  return require(path) as PatchModule
+}
+
+/** Conditions Node matches for `import` and for `require()`, in this process. */
+function resolutionConditions(kind: "import" | "require"): string[] {
+  // Node 22.10+ (`require(esm)`) matches `module-sync` for both, which gives
+  // both the same file and so no second copy.
+  const sync = (process.features as { require_module?: boolean }).require_module
+    ? ["module-sync"]
+    : []
+  return ["node", kind, ...sync, "default"]
+}
+
+/** The target a package.json `exports` field gives "." under `conditions`. */
+function exportTarget(exp: unknown, conditions: string[]): string | undefined {
+  if (typeof exp === "string") return exp
+  if (Array.isArray(exp)) {
+    for (const entry of exp) {
+      const target = exportTarget(entry, conditions)
+      if (target !== undefined) return target
+    }
+    return undefined
+  }
+  if (!exp || typeof exp !== "object") return undefined
+  const map = exp as Record<string, unknown>
+  if (Object.keys(map).some((k) => k.startsWith("."))) return exportTarget(map["."], conditions)
+  for (const [key, value] of Object.entries(map)) {
+    if (!conditions.includes(key)) continue
+    const target = exportTarget(value, conditions)
+    if (target !== undefined) return target
+  }
+  return undefined
+}
+
+/** The installed package's package.json, found from its resolved entry. */
+function readPackageJson(pkg: string): { name?: string; exports?: unknown } | null {
+  const path = require("node:path")
+  const { existsSync, readFileSync } = require("node:fs")
+  let dir: string
+  try {
+    dir = path.dirname(require.resolve(pkg))
+  } catch {
+    return null
+  }
+  for (;;) {
+    const file = path.join(dir, "package.json")
+    if (existsSync(file)) {
+      try {
+        const json = JSON.parse(readFileSync(file, "utf-8"))
+        if (json?.name === pkg) return json
+      } catch {
+        return null
+      }
+    }
+    const parent = path.dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+/**
+ * Whether `import pkg` loads a different file from `require(pkg)`, so the
+ * package has an ES module copy of its classes that `init()` does not reach.
+ * A package without `exports` gives `import` its `main`, the same file.
+ */
+function hasSeparateEsmBuild(pkg: string): boolean {
+  const known = separateEsmBuild.get(pkg)
+  if (known !== undefined) return known
+  const json = readPackageJson(pkg)
+  const esm = exportTarget(json?.exports, resolutionConditions("import"))
+  const cjs = exportTarget(json?.exports, resolutionConditions("require"))
+  const separate = esm !== undefined && cjs !== undefined && esm !== cjs
+  separateEsmBuild.set(pkg, separate)
+  return separate
+}
+
+/** Per package, {@link hasSeparateEsmBuild}: fixed for the life of the process. */
+const separateEsmBuild = new Map<string, boolean>()
+
+/**
+ * The module specifiers the `register` entry imports: those of every patch
+ * whose provider is installed and ships a separate ES module build. Internal,
+ * for `register.mts`; not exported from the package root.
+ */
+export function esmPatchPlan(): string[] {
+  const specifiers: string[] = []
+  for (const mod of PATCH_MODULES) {
+    if (!mod.detects.some((pkg) => isInstalled(pkg) && hasSeparateEsmBuild(pkg))) continue
+    try {
+      specifiers.push(...(loadPatchModule(mod.path).SPECIFIERS ?? []))
+    } catch {
+      // A patch module that fails to load is reported by init(), not here.
+    }
+  }
+  return specifiers
+}
+
+/**
+ * Patch the ES module builds the `register` entry loaded, keyed by the
+ * specifiers {@link esmPatchPlan} returned. Internal, for `register.mts`.
+ */
+export function applyEsmPatches(loaded: Map<string, unknown>): void {
+  esmRegisterRan = true
+  const load = (specifier: string): unknown => {
+    if (!loaded.has(specifier)) throw new Error(`${specifier} was not imported`)
+    return loaded.get(specifier)
+  }
+  for (const mod of PATCH_MODULES) {
+    try {
+      if (loadPatchModule(mod.path).apply(load)) esmPatched.add(mod.name)
+    } catch (err: unknown) {
+      logger.debug(
+        `${mod.name} ES module patch not applied: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+  }
+}
+
+/**
+ * Whether the process entry point is an ES module. An ES module entry file
+ * leaves `require.main` undefined, but so do `node -e` and the REPL, which
+ * have no entry file (`process.argv[1]`) and run CommonJS unless told
+ * `--input-type=module`.
+ */
+function entryIsEsm(): boolean {
+  if (require.main !== undefined) return false
+  return process.argv[1] !== undefined || process.execArgv.includes("--input-type=module")
+}
+
+/**
+ * Per package: whether the app had loaded its CommonJS build before the first
+ * `init()` (the `createRequire` workaround), which means the app uses the copy
+ * `init()` patches. Decided once, before this SDK requires it itself.
+ */
+const cjsLoadedByApp = new Map<string, boolean>()
+
+function noteCjsLoadedByApp(): void {
+  for (const mod of PATCH_MODULES) {
+    for (const pkg of mod.detects) {
+      if (cjsLoadedByApp.has(pkg)) continue
+      try {
+        cjsLoadedByApp.set(pkg, require.resolve(pkg) in require.cache)
+      } catch {
+        // Not installed; nothing to decide.
+      }
+    }
+  }
+}
+
+/**
+ * The package whose unpatched ES module build an ES module app would get from
+ * `import`, if any. Whether the app imports it at all cannot be seen from here,
+ * so the warning says what is known: the app is an ES module and the package
+ * ships an ES module build.
+ */
+function esmGap(mod: (typeof PATCH_MODULES)[number]): string | undefined {
+  if (esmPatched.has(mod.name) || !entryIsEsm()) return undefined
+  return mod.detects.find((pkg) => !cjsLoadedByApp.get(pkg) && hasSeparateEsmBuild(pkg))
+}
+
+function warnAboutEsmGap(pkg: string): void {
+  const fix = esmRegisterRan
+    ? "The --import promptguard-sdk/register entry ran but could not patch it; " +
+      "load it through createRequire() or point that client at the proxy."
+    : "Start Node with: node --import promptguard-sdk/register app.js"
+  logger.warn(
+    `PromptGuard: this app is an ES module and '${pkg}' ships a separate ES module build, ` +
+      `which init() does not patch, so calls made through \`import ... from '${pkg}'\` are ` +
+      `NOT being scanned. ${fix} See ${ESM_ADVICE_URL}`,
+  )
+}
+
 function warnAboutUnpatchedLibraries(): void {
+  const esmWarned = new Set(esmUnpatched.values())
   for (const pkg of detectedUnpatched()) {
+    if (esmWarned.has(pkg)) continue
     logger.warn(
       `PromptGuard: '${pkg}' is installed but auto-instrumentation did NOT hook it, ` +
         `calls made through it are not being scanned. Point that client at the proxy ` +
@@ -313,14 +513,12 @@ function warnAboutUnpatchedLibraries(): void {
 }
 
 function applyPatches(): void {
-  const patchModules = PATCH_MODULES
+  noteCjsLoadedByApp()
+  esmUnpatched.clear()
 
-  for (const mod of patchModules) {
+  for (const mod of PATCH_MODULES) {
     try {
-      const patchModule = require(mod.path) as {
-        apply: () => boolean
-        revert: () => void
-      }
+      const patchModule = loadPatchModule(mod.path)
       if (patchModule.apply()) {
         // apply() is idempotent per patch module, so a second init() without
         // shutdown() reports "already patched" success. Skip the push when
@@ -328,7 +526,12 @@ function applyPatches(): void {
         // getAppliedPatches() canary lie and call revert() twice on
         // shutdown().
         if (!appliedPatches.some((p) => p.name === mod.name)) {
-          appliedPatches.push({ name: mod.name, revert: patchModule.revert })
+          appliedPatches.push({ name: mod.name, revert: () => patchModule.revert() })
+        }
+        const gap = esmGap(mod)
+        if (gap !== undefined) {
+          esmUnpatched.set(mod.name, gap)
+          warnAboutEsmGap(gap)
         }
       } else {
         logger.debug(
@@ -349,11 +552,10 @@ function applyPatches(): void {
     logger.warn(
       "init() applied ZERO auto-instrumentation patches, no supported LLM SDK was " +
         "resolvable via CommonJS require(), so NO calls are being scanned. If your app " +
-        'runs as native ESM ("type": "module" / .mjs), auto-instrumentation cannot see ' +
-        "the module instances your code imports (dual-package hazard). Use the ESM-safe " +
-        "integrations instead: the LangChain callback handler, the Vercel AI SDK " +
-        "middleware, or explicit GuardClient.scan() calls. " +
-        'See README "Limitations: ESM apps". Set logLevel: "debug" for per-SDK reasons.',
+        'runs as native ESM ("type": "module" / .mjs), start Node with ' +
+        "node --import promptguard-sdk/register app.js, or use the LangChain callback " +
+        "handler, the Vercel AI SDK middleware, or explicit GuardClient.scan() calls. " +
+        'See README "ES module apps". Set logLevel: "debug" for per-SDK reasons.',
     )
   }
 }

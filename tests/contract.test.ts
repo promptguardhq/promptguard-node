@@ -129,6 +129,15 @@ describe("Contract: GuardDecision", () => {
       expect(d.confidence).toBe(c.expect.confidence)
       expect(d.threatType ?? null).toBe(c.expect.threat_type)
 
+      // v1.11.0: the recorded event's dashboard page, on the decision and on
+      // the block error a developer catches.
+      if ("dashboard_url" in c.expect) {
+        expect(d.dashboardUrl).toBe(c.expect.dashboard_url)
+        if (d.blocked) {
+          expect(new PromptGuardBlockedError(d).dashboardUrl).toBe(c.expect.dashboard_url)
+        }
+      }
+
       if (c.expect.redacted_messages_count != null) {
         expect(d.redactedMessages).toHaveLength(c.expect.redacted_messages_count)
         expect(d.redactedMessages?.[0].content).toBe(c.expect.redacted_first_content)

@@ -1,10 +1,18 @@
 /**
  * Tests for auto-instrumentation orchestration (src/auto.ts).
  *
- * None of the provider SDKs are installed in this repo, so init() exercises
- * the zero-patches path: exactly the situation a native-ESM app (or an app
- * without any supported SDK) ends up in.
+ * The provider SDKs are not installed in this repo, so init() exercises the
+ * zero-patches path, the situation of an app without any supported SDK.
+ * `openai` is the exception (a devDependency, for the ES module app test in
+ * esm-register.test.ts), so it is made unloadable here.
  */
+
+jest.mock("openai/resources/chat/completions", () => {
+  throw new Error("Cannot find module 'openai/resources/chat/completions'")
+})
+jest.mock("openai/resources/responses/responses", () => {
+  throw new Error("Cannot find module 'openai/resources/responses/responses'")
+})
 
 import { getAppliedPatches, init, shutdown } from "../src/auto"
 import { setLogLevel } from "../src/logger"
@@ -25,7 +33,9 @@ describe("init with no patchable SDKs", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("ZERO auto-instrumentation patches"),
     )
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Limitations: ESM apps"))
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("node --import promptguard-sdk/register"),
+    )
   })
 
   test("getAppliedPatches() reports no applied patches (runtime canary)", () => {

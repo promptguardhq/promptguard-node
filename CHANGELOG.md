@@ -13,6 +13,60 @@ survives three releases is a changelog nobody is maintaining.
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-11-13
+
+**ES module apps can be protected, and a block links to its event.** Start an
+ES module app with `node --import promptguard-sdk/register app.js`; without
+it, `init()` now says the app is unprotected instead of reporting it covered.
+Block errors and every decision carry the event's dashboard page.
+
+### Added
+
+- **ES module apps are scanned with a loader: `node --import
+  promptguard-sdk/register app.js`** (promptguardhq/promptguard#1144).
+  `openai`, `@anthropic-ai/sdk`, `@google/genai` and `@google/generative-ai`
+  ship a separate ES module build, and `init()` patched only the CommonJS one,
+  so in a native ES module app (`"type": "module"` or `.mjs`) a plain
+  `import OpenAI from 'openai'` was never scanned. The new `register` entry
+  imports those ES module builds before the app starts and patches them; the
+  app's code and its `init()` call stay as they are. Requires Node's
+  `--import` flag (Node 20 or newer, which the package already requires).
+- **A block error links to its event: `PromptGuardBlockedError.dashboardUrl`**
+  (promptguardhq/promptguard#1149). The Guard API now returns
+  `dashboard_url`, the recorded event's page in the dashboard (the page the
+  proxy names in `x-promptguard-dashboard-url`). The block error exposes it and
+  names it at the end of its message, and every `GuardDecision` carries it as
+  `dashboardUrl`. It is `null` when no event was recorded (a `pgshadow doctor`
+  probe) and when the Guard API predates the field, so nothing breaks against
+  an older Engine. Only an http(s) URL is passed on.
+- **The proxy client's error links to its event too:
+  `PromptGuardError.dashboardUrl`**, read from the proxy's
+  `error.dashboard_url` or its `x-promptguard-dashboard-url` header, `null`
+  when the proxy names no page.
+- **Monitor mode's "would block" and "would redact" warnings name the event's
+  page** beside its id, for the shadow deployment where nobody catches an
+  error.
+
+### Changed
+
+- **The block error's message ends with the event's page** when the Guard API
+  returns one (`. Event: https://...`). Code that matches the message by exact
+  text should be checked.
+- **Cross-SDK `/guard` contract v1.11.0**, with the `dashboard_url` cases. It
+  is vendored from the platform repo's unreleased event-links branch, so the
+  version number may change when that branch merges beside another bump.
+- **Without the loader, an ES module app is told it is unprotected instead of
+  being told it is.** `init()` used to report `openai` in `getAppliedPatches()`
+  because it had patched the CommonJS copy, so the Quickstart's fail-loudly
+  check passed while every `import`ed client went unscanned. Now, in an ES
+  module app, each installed provider with a separate ES module build is
+  logged as a warning naming the loader, left out of `getAppliedPatches()`,
+  and listed in `instrumentationReport().detectedUnpatched` (and so in
+  `verify()`). A provider whose CommonJS build the app loaded before `init()`,
+  the `createRequire` workaround, is still reported as patched. A startup
+  check on `getAppliedPatches()` in an ES module app now fails until Node is
+  started with the loader, which is the point.
+
 ## [2.5.1] - 2026-11-10
 
 **No behaviour change.** Generated types, message punctuation and development

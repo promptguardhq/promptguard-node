@@ -7,10 +7,17 @@
  */
 
 import type { GuardMessage } from "../guard"
-import { createPatchedMethod } from "./base"
+import { loadPrototype, type ModuleLoader, unwrapMethod, wrapMethod } from "./base"
 
-let originalCreate: ((...args: unknown[]) => unknown) | null = null
-let patched = false
+const MESSAGES = "@anthropic-ai/sdk/resources/messages"
+
+/** The modules this patch loads, for the `register` entry to `import()`. */
+export const SPECIFIERS = [MESSAGES]
+
+/** The CommonJS build, through a literal `require()` bundlers can see. */
+function requireCjs(_specifier: string): unknown {
+  return require("@anthropic-ai/sdk/resources/messages")
+}
 
 // ---------------------------------------------------------------------------
 // Message conversion
@@ -136,22 +143,8 @@ export function applyRedactionToArgs(
 // Apply / revert
 // ---------------------------------------------------------------------------
 
-export function apply(): boolean {
-  if (patched) return true
-
-  let Messages: { prototype: { create: unknown } }
-  try {
-    const mod = require("@anthropic-ai/sdk/resources/messages")
-    Messages = mod.Messages
-    if (!Messages?.prototype?.create) return false
-  } catch {
-    return false
-  }
-
-  const original = Messages.prototype.create as (...args: unknown[]) => unknown
-  originalCreate = original
-
-  Messages.prototype.create = createPatchedMethod(original, {
+export function apply(load: ModuleLoader = requireCjs): boolean {
+  return wrapMethod(loadPrototype(load, MESSAGES, "Messages"), "create", {
     framework: "anthropic",
     extractMessages: (args) => {
       const params = (args[0] ?? {}) as Record<string, unknown>
@@ -164,21 +157,8 @@ export function apply(): boolean {
     extractResponseText: (response) => extractResponseContent(response),
     applyRedaction: applyRedactionToArgs,
   })
-
-  patched = true
-  return true
 }
 
-export function revert(): void {
-  if (!patched || !originalCreate) return
-
-  try {
-    const mod = require("@anthropic-ai/sdk/resources/messages")
-    mod.Messages.prototype.create = originalCreate
-  } catch {
-    // ignore
-  }
-
-  originalCreate = null
-  patched = false
+export function revert(load: ModuleLoader = requireCjs): void {
+  unwrapMethod(loadPrototype(load, MESSAGES, "Messages"), "create")
 }

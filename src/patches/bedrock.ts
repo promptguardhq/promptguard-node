@@ -13,10 +13,17 @@
  */
 
 import type { GuardMessage } from "../guard"
-import { createPatchedMethod } from "./base"
+import { loadPrototype, type ModuleLoader, unwrapMethod, wrapMethod } from "./base"
 
-let originalSend: ((...args: unknown[]) => unknown) | null = null
-let patched = false
+const PACKAGE = "@aws-sdk/client-bedrock-runtime"
+
+/** The modules this patch loads, for the `register` entry to `import()`. */
+export const SPECIFIERS = [PACKAGE]
+
+/** The CommonJS build, through a literal `require()` bundlers can see. */
+function requireCjs(_specifier: string): unknown {
+  return require("@aws-sdk/client-bedrock-runtime")
+}
 
 export const BEDROCK_COMMANDS = new Set([
   "InvokeModelCommand",
@@ -342,22 +349,8 @@ export function extractBedrockResponseText(response: unknown, commandName: strin
 // Apply / revert
 // ---------------------------------------------------------------------------
 
-export function apply(): boolean {
-  if (patched) return true
-
-  let BedrockRuntimeClient: { prototype: { send: unknown } }
-  try {
-    const mod = require("@aws-sdk/client-bedrock-runtime")
-    BedrockRuntimeClient = mod.BedrockRuntimeClient
-    if (!BedrockRuntimeClient?.prototype?.send) return false
-  } catch {
-    return false
-  }
-
-  const original = BedrockRuntimeClient.prototype.send as (...args: unknown[]) => unknown
-  originalSend = original
-
-  BedrockRuntimeClient.prototype.send = createPatchedMethod(original, {
+export function apply(load: ModuleLoader = requireCjs): boolean {
+  return wrapMethod(loadPrototype(load, PACKAGE, "BedrockRuntimeClient"), "send", {
     framework: "aws-bedrock",
     shouldIntercept: (args) => BEDROCK_COMMANDS.has(commandNameOf(args)),
     extractMessages: extractCommandMessages,
@@ -365,23 +358,8 @@ export function apply(): boolean {
       extractBedrockResponseText(response, commandNameOf(args)) || null,
     applyRedaction: applyRedactionToArgs,
   })
-
-  patched = true
-  return true
 }
 
-export function revert(): void {
-  if (!patched || !originalSend) return
-
-  try {
-    const mod = require("@aws-sdk/client-bedrock-runtime")
-    if (mod.BedrockRuntimeClient?.prototype) {
-      mod.BedrockRuntimeClient.prototype.send = originalSend
-    }
-  } catch {
-    // ignore
-  }
-
-  originalSend = null
-  patched = false
+export function revert(load: ModuleLoader = requireCjs): void {
+  unwrapMethod(loadPrototype(load, PACKAGE, "BedrockRuntimeClient"), "send")
 }

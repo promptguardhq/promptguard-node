@@ -27,6 +27,10 @@ const subpaths = Object.keys(pkg.exports).map((key) =>
   key === "." ? pkg.name : `${pkg.name}/${key.slice(2)}`,
 )
 
+// ES-module-only entries: loaded with `node --import`, never `require()`d
+// (top-level await). Checked through the flag they are documented with.
+const importOnly = new Set([`${pkg.name}/register`])
+
 // Symbols that must be reachable through the root entry in both systems.
 const rootSymbols = ["PromptGuard", "GuardClient", "init"]
 
@@ -60,6 +64,12 @@ try {
   run("npm", ["install", "--no-audit", "--no-fund", "--no-save", tarball], { cwd: appDir })
 
   for (const specifier of subpaths) {
+    if (importOnly.has(specifier)) {
+      check(`node --import ${specifier}`, () => {
+        run("node", ["--import", specifier, "-e", ""], { cwd: appDir })
+      })
+      continue
+    }
     check(`require("${specifier}")`, () => {
       run("node", ["-e", `require(${JSON.stringify(specifier)})`], { cwd: appDir })
     })

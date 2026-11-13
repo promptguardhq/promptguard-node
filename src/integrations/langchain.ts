@@ -24,6 +24,7 @@
  */
 
 import {
+  eventRef,
   GuardApiError,
   GuardClient,
   type GuardClientConfig,
@@ -357,7 +358,7 @@ export class PromptGuardCallbackHandler {
     if (decision.blocked) {
       if (this.mode === "enforce") throw new PromptGuardBlockedError(decision)
       logger.warn(
-        `[monitor] would block: ${decision.threatType} (event=${decision.eventId}, run=${runId})`,
+        `[monitor] would block: ${decision.threatType} (${eventRef(decision)}, run=${runId})`,
       )
     }
 
@@ -368,13 +369,13 @@ export class PromptGuardCallbackHandler {
         // content the Guard API asked us to redact, escalate to a block.
         logger.error(
           `redact decision cannot be applied from a LangChain callback; ` +
-            `escalating to block (event=${decision.eventId}, run=${runId})`,
+            `escalating to block (${eventRef(decision)}, run=${runId})`,
         )
         throw new PromptGuardBlockedError(decision)
       }
       logger.warn(
         `[monitor] would redact: content passed through unredacted ` +
-          `(event=${decision.eventId}, run=${runId})`,
+          `(${eventRef(decision)}, run=${runId})`,
       )
     }
   }

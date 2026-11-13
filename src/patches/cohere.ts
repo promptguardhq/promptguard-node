@@ -11,10 +11,24 @@
  */
 
 import type { GuardMessage } from "../guard"
-import { createPatchedMethod, type PatchConfig } from "./base"
+import {
+  loadPrototype,
+  type ModuleLoader,
+  type PatchConfig,
+  unwrapMethod,
+  wrapMethod,
+} from "./base"
 
-const originals: Map<string, (...args: unknown[]) => unknown> = new Map()
-let patched = false
+const PACKAGE = "cohere-ai"
+const CLIENT_CLASSES = ["CohereClientV2", "ClientV2", "CohereClient", "Client"]
+
+/** The modules this patch loads, for the `register` entry to `import()`. */
+export const SPECIFIERS = [PACKAGE]
+
+/** The CommonJS build, through a literal `require()` bundlers can see. */
+function requireCjs(_specifier: string): unknown {
+  return require("cohere-ai")
+}
 
 // ---------------------------------------------------------------------------
 // Message conversion
@@ -162,56 +176,19 @@ const cohereConfig: PatchConfig = {
 // Apply / revert
 // ---------------------------------------------------------------------------
 
-export function apply(): boolean {
-  if (patched) return true
-
-  let cohere: Record<string, { prototype: { chat?: unknown } }>
-  try {
-    cohere = require("cohere-ai")
-  } catch {
-    return false
-  }
-
+export function apply(load: ModuleLoader = requireCjs): boolean {
   let patchedAny = false
-
-  for (const className of ["CohereClientV2", "ClientV2", "CohereClient", "Client"]) {
-    try {
-      const cls = cohere[className]
-      if (!cls?.prototype?.chat) continue
-      const key = `${className}.chat`
-      if (originals.has(key)) continue
-
-      const original = cls.prototype.chat as (...args: unknown[]) => unknown
-      originals.set(key, original)
-      cls.prototype.chat = createPatchedMethod(original, cohereConfig)
+  for (const className of CLIENT_CLASSES) {
+    // Names that alias one class are wrapped once (wrapMethod is idempotent).
+    if (wrapMethod(loadPrototype(load, PACKAGE, className), "chat", cohereConfig)) {
       patchedAny = true
-    } catch {
-      // class not available in this version
     }
   }
-
-  patched = patchedAny
-  return patched
+  return patchedAny
 }
 
-export function revert(): void {
-  if (!patched) return
-
-  try {
-    const cohere = require("cohere-ai") as Record<string, { prototype: { chat?: unknown } }>
-    for (const [key, original] of originals) {
-      const className = key.split(".")[0]
-      try {
-        const cls = cohere[className]
-        if (cls?.prototype) cls.prototype.chat = original
-      } catch {
-        // ignore
-      }
-    }
-  } catch {
-    // ignore
+export function revert(load: ModuleLoader = requireCjs): void {
+  for (const className of CLIENT_CLASSES) {
+    unwrapMethod(loadPrototype(load, PACKAGE, className), "chat")
   }
-
-  originals.clear()
-  patched = false
 }

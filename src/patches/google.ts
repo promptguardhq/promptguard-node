@@ -7,10 +7,17 @@
  */
 
 import type { GuardMessage } from "../guard"
-import { createPatchedMethod } from "./base"
+import { loadPrototype, type ModuleLoader, unwrapMethod, wrapMethod } from "./base"
 
-let originalGenerate: ((...args: unknown[]) => unknown) | null = null
-let patched = false
+const PACKAGE = "@google/generative-ai"
+
+/** The modules this patch loads, for the `register` entry to `import()`. */
+export const SPECIFIERS = [PACKAGE]
+
+/** The CommonJS build, through a literal `require()` bundlers can see. */
+function requireCjs(_specifier: string): unknown {
+  return require("@google/generative-ai")
+}
 
 // ---------------------------------------------------------------------------
 // Message conversion
@@ -131,22 +138,8 @@ export function applyRedactionToArgs(args: unknown[], redacted: GuardMessage[]):
 // Apply / revert
 // ---------------------------------------------------------------------------
 
-export function apply(): boolean {
-  if (patched) return true
-
-  let GenerativeModel: { prototype: { generateContent: unknown } }
-  try {
-    const mod = require("@google/generative-ai")
-    GenerativeModel = mod.GenerativeModel
-    if (!GenerativeModel?.prototype?.generateContent) return false
-  } catch {
-    return false
-  }
-
-  const original = GenerativeModel.prototype.generateContent as (...args: unknown[]) => unknown
-  originalGenerate = original
-
-  GenerativeModel.prototype.generateContent = createPatchedMethod(original, {
+export function apply(load: ModuleLoader = requireCjs): boolean {
+  return wrapMethod(loadPrototype(load, PACKAGE, "GenerativeModel"), "generateContent", {
     framework: "google-generativeai",
     extractMessages: (args, thisArg) => {
       const contents = args[0]
@@ -160,23 +153,8 @@ export function apply(): boolean {
     extractResponseText: (response) => extractResponseText(response),
     applyRedaction: applyRedactionToArgs,
   })
-
-  patched = true
-  return true
 }
 
-export function revert(): void {
-  if (!patched || !originalGenerate) return
-
-  try {
-    const mod = require("@google/generative-ai")
-    if (mod.GenerativeModel) {
-      mod.GenerativeModel.prototype.generateContent = originalGenerate
-    }
-  } catch {
-    // ignore
-  }
-
-  originalGenerate = null
-  patched = false
+export function revert(load: ModuleLoader = requireCjs): void {
+  unwrapMethod(loadPrototype(load, PACKAGE, "GenerativeModel"), "generateContent")
 }

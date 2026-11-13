@@ -7,6 +7,7 @@
  */
 
 import {
+  eventRef,
   GuardApiError,
   type GuardClient,
   type GuardMessage,
@@ -33,6 +34,64 @@ export interface PatchConfig {
    */
   applyRedaction?: (args: unknown[], redactedMessages: GuardMessage[]) => unknown[] | null
   shouldIntercept?: (args: unknown[], thisArg: unknown) => boolean
+}
+
+/**
+ * How a patch loads the provider module it hooks: `require` for the CommonJS
+ * build (what `init()` patches), or a lookup into modules that the `register`
+ * entry already loaded with `import()`, for the ES module build. A provider
+ * that ships both builds has two copies of every class, and each needs its
+ * own patch.
+ */
+export type ModuleLoader = (specifier: string) => unknown
+
+/**
+ * Marks a wrapper with the method it replaced. The marker is the patch state:
+ * it is what makes wrapping idempotent per class (the CommonJS and ES module
+ * copies of a class are wrapped independently, and the same copy is never
+ * wrapped twice) and what revert restores. `Symbol.for`, so a second copy of
+ * this SDK in the process sees the first one's wrappers.
+ */
+const ORIGINAL = Symbol.for("promptguard-sdk.patched-original")
+
+type Method = (...args: unknown[]) => unknown
+
+/** `module[exportName].prototype`, or undefined when any step is missing. */
+export function loadPrototype(
+  load: ModuleLoader,
+  specifier: string,
+  exportName: string,
+): object | undefined {
+  try {
+    const mod = load(specifier) as Record<string, { prototype?: object } | undefined> | undefined
+    return mod?.[exportName]?.prototype
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Replace `owner[key]` with a scanning wrapper, once. Returns whether
+ * `owner[key]` is wrapped afterwards (false when there is no such method).
+ */
+export function wrapMethod(owner: object | undefined, key: string, config: PatchConfig): boolean {
+  if (!owner) return false
+  const target = owner as Record<string, unknown>
+  const current = target[key]
+  if (typeof current !== "function") return false
+  if (ORIGINAL in current) return true
+  const wrapped = createPatchedMethod(current as Method, config)
+  Object.defineProperty(wrapped, ORIGINAL, { value: current })
+  target[key] = wrapped
+  return true
+}
+
+/** Restore what {@link wrapMethod} replaced; a no-op when it is not wrapped. */
+export function unwrapMethod(owner: object | undefined, key: string): void {
+  if (!owner) return
+  const target = owner as Record<string, unknown>
+  const current = target[key] as (Method & { [ORIGINAL]?: Method }) | undefined
+  if (typeof current === "function" && ORIGINAL in current) target[key] = current[ORIGINAL]
 }
 
 /**
@@ -109,7 +168,7 @@ export function createPatchedMethod(
 
       if (decision?.blocked) {
         if (getMode() === "enforce") throw new PromptGuardBlockedError(decision)
-        logger.warn(`[monitor] would block: ${decision.threatType} (event=${decision.eventId})`)
+        logger.warn(`[monitor] would block: ${decision.threatType} (${eventRef(decision)})`)
       }
 
       if (decision?.redacted) {
@@ -138,7 +197,7 @@ export function createPatchedMethod(
                 (isPartial
                   ? ` (${redactedMessages.length} redacted messages for ${messages.length} scanned)`
                   : "") +
-                `; escalating to block (event=${decision.eventId})`,
+                `; escalating to block (${eventRef(decision)})`,
             )
             throw new PromptGuardBlockedError(decision)
           }
@@ -149,7 +208,7 @@ export function createPatchedMethod(
               (isPartial
                 ? ` (partial: ${redactedMessages.length} redacted messages for ${messages.length} scanned)`
                 : "") +
-              ` (event=${decision.eventId})`,
+              ` (${eventRef(decision)})`,
           )
         }
       }
