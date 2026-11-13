@@ -13,6 +13,13 @@ survives three releases is a changelog nobody is maintaining.
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-11-13
+
+**ES module apps can be protected, and a block links to its event.** Start an
+ES module app with `node --import promptguard-sdk/register app.js`; without
+it, `init()` now says the app is unprotected instead of reporting it covered.
+Block errors and every decision carry the event's dashboard page.
+
 ### Added
 
 - **ES module apps are scanned with a loader: `node --import
