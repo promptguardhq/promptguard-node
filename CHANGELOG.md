@@ -24,9 +24,23 @@ survives three releases is a changelog nobody is maintaining.
   imports those ES module builds before the app starts and patches them; the
   app's code and its `init()` call stay as they are. Requires Node's
   `--import` flag (Node 20 or newer, which the package already requires).
+- **A block error links to its event: `PromptGuardBlockedError.dashboardUrl`**
+  (promptguardhq/promptguard#1149). The Guard API now returns
+  `dashboard_url`, the recorded event's page in the dashboard (the page the
+  proxy names in `x-promptguard-dashboard-url`). The block error exposes it and
+  names it at the end of its message, and every `GuardDecision` carries it as
+  `dashboardUrl`. It is `null` when no event was recorded (a `pgshadow doctor`
+  probe) and when the Guard API predates the field, so nothing breaks against
+  an older Engine.
 
 ### Changed
 
+- **The block error's message ends with the event's page** when the Guard API
+  returns one (`. Event: https://...`). Code that matches the message by exact
+  text should be checked.
+- **Cross-SDK `/guard` contract v1.11.0**, with the `dashboard_url` cases. It
+  is vendored from the platform repo's unreleased event-links branch, so the
+  version number may change when that branch merges beside another bump.
 - **Without the loader, an ES module app is told it is unprotected instead of
   being told it is.** `init()` used to report `openai` in `getAppliedPatches()`
   because it had patched the CommonJS copy, so the Quickstart's fail-loudly

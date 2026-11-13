@@ -504,12 +504,17 @@ try {
     console.log(error.decision.threatType);
     console.log(error.decision.confidence);
     console.log(error.decision.eventId);
+    // The event's page in the dashboard (also in error.message), or null
+    // when the Guard API recorded no event or predates the field.
+    console.log(error.dashboardUrl);
   } else if (error instanceof GuardApiError) {
     // Guard API is unreachable (only when failOpen=false)
     console.log(error.statusCode);
   }
 }
 ```
+
+The same URL is on every decision as `decision.dashboardUrl`, for allow and redact decisions too, whenever the Guard API recorded an event.
 
 ## TypeScript Support
 

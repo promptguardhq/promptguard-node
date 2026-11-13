@@ -15,6 +15,7 @@ import os from "node:os"
 import path from "node:path"
 
 const ROOT = path.join(__dirname, "..")
+const DASHBOARD_URL = "https://app.promptguard.co/dashboard/projects/proj-1/interactions/evt_test"
 
 interface Hits {
   guard: string[]
@@ -76,7 +77,12 @@ try {
   })
   console.log("RESULT allowed")
 } catch (err) {
-  console.log("RESULT " + (err instanceof PromptGuardBlockedError ? "blocked" : "error " + err.message))
+  if (err instanceof PromptGuardBlockedError) {
+    console.log("RESULT blocked")
+    console.log("EVENT " + err.dashboardUrl)
+  } else {
+    console.log("RESULT error " + err.message)
+  }
 }
 `
   const initCall = `
@@ -109,6 +115,7 @@ ${initCall}${call}`,
         JSON.stringify({
           decision: "block",
           event_id: "evt_test",
+          dashboard_url: DASHBOARD_URL,
           confidence: 0.99,
           threat_type: "prompt_injection",
         }),
@@ -190,6 +197,7 @@ describe("ES module app with a plain `import OpenAI from 'openai'`", () => {
     expect(hits.guard).toHaveLength(1)
     expect(hits.guard[0]).toContain("Ignore all previous instructions")
     expect(run.stdout).toContain("RESULT blocked")
+    expect(run.stdout).toContain(`EVENT ${DASHBOARD_URL}`)
     expect(hits.provider).toBe(0)
     expect(run.code).toBe(0)
   }, 30_000)

@@ -100,6 +100,11 @@ export interface ThreatDetail {
 export interface GuardResponseBody {
   decision: "allow" | "block" | "redact"
   event_id: string
+  /**
+   * The recorded event's page in the dashboard. Null when no event was
+   * recorded; absent from an Engine older than the field.
+   */
+  dashboard_url?: string | null
   confidence: number
   threat_type?: string
   redacted_messages?: GuardMessage[]
@@ -116,6 +121,12 @@ const VALID_DECISIONS = new Set(["allow", "block", "redact"])
 export class GuardDecision {
   readonly decision: string
   readonly eventId: string
+  /**
+   * The dashboard page of the event this decision recorded, to open it from a
+   * log or an error. `null` when the Guard API recorded no event (a
+   * `pgshadow doctor` probe) or is an Engine too old to return it.
+   */
+  readonly dashboardUrl: string | null
   readonly confidence: number
   readonly threatType?: string
   readonly redactedMessages?: GuardMessage[]
@@ -136,6 +147,7 @@ export class GuardDecision {
     }
     this.decision = data.decision
     this.eventId = data.event_id ?? ""
+    this.dashboardUrl = typeof data.dashboard_url === "string" ? data.dashboard_url : null
     this.confidence = data.confidence ?? 0
     this.threatType = data.threat_type
     this.redactedMessages = data.redacted_messages
@@ -197,15 +209,23 @@ export function safeErrorLabel(err: unknown): string {
 
 export class PromptGuardBlockedError extends Error {
   readonly decision: GuardDecision
+  /**
+   * The blocked request's event page in the dashboard, also named in the
+   * message. `null` when the Guard API returned none (see
+   * {@link GuardDecision.dashboardUrl}).
+   */
+  readonly dashboardUrl: string | null
 
   constructor(decision: GuardDecision) {
     const threat = decision.threatType ?? "policy_violation"
     super(
       `PromptGuard blocked this request: ${threat} ` +
-        `(confidence=${decision.confidence.toFixed(2)}, event_id=${decision.eventId})`,
+        `(confidence=${decision.confidence.toFixed(2)}, event_id=${decision.eventId})` +
+        (decision.dashboardUrl ? `. Event: ${decision.dashboardUrl}` : ""),
     )
     this.name = "PromptGuardBlockedError"
     this.decision = decision
+    this.dashboardUrl = decision.dashboardUrl
   }
 }
 
