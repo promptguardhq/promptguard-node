@@ -26,11 +26,11 @@ Get a free API key at [app.promptguard.co](https://app.promptguard.co).
 
 > **Module format:** the package currently ships **CommonJS** (`require`) builds. It works in ESM projects via Node's CJS interop (`import { init } from 'promptguard-sdk'` transpiles to a `require`), and in plain CommonJS via `const { init } = require('promptguard-sdk')`.
 >
-> **Running a native-ESM app?** Auto-instrumentation (`init()`) may not cover your LLM calls, see [Limitations: ESM apps](#limitations) before relying on enforce mode.
+> **Running a native ES module app** (`"type": "module"` or `.mjs`)? Start Node with the loader so `init()` covers your `import`ed provider SDKs: `node --import promptguard-sdk/register app.js`. See [ES module apps](#es-module-apps).
 
 ## Option 1: Auto-Instrumentation (Recommended)
 
-One call to `init()` scans the LLM calls your application makes through the provider methods listed under [Supported SDKs](#supported-sdks), including calls made by frameworks built on those SDKs. Anything else (another provider, a raw `fetch`, or a native-ESM import the patch never reaches; see [Limitations](#limitations)) is not scanned, so confirm coverage with [`verify()`](#confirming-protection-is-actually-live).
+One call to `init()` scans the LLM calls your application makes through the provider methods listed under [Supported SDKs](#supported-sdks), including calls made by frameworks built on those SDKs. Anything else (another provider, a raw `fetch`, or an ES module app started without [the loader](#es-module-apps)) is not scanned, so confirm coverage with [`verify()`](#confirming-protection-is-actually-live).
 
 ```typescript
 // All imports first: ES module imports are hoisted and always run before
@@ -40,7 +40,9 @@ import OpenAI from 'openai';
 
 // init() runs as the first executed statement and patches the SDK prototypes.
 // Patching works regardless of import order, so you don't need to worry about
-// importing the LLM SDK "after" calling init().
+// importing the LLM SDK "after" calling init(). If this file runs as a native
+// ES module, start Node with `node --import promptguard-sdk/register app.js`
+// (see "ES module apps" below).
 init({ apiKey: 'pg_live_xxx' });
 
 const client = new OpenAI();
@@ -58,7 +60,7 @@ const response = await client.chat.completions.create({
 > init({ apiKey: 'pg_live_xxx' });
 > console.log('PromptGuard protecting:', getAppliedPatches()); // e.g. ['openai']
 > ```
-> If this list is empty, nothing is being scanned (see [Limitations: ESM apps](#limitations)). Set `logLevel: 'info'` on `init()` to also emit a one-line confirmation banner.
+> If this list is empty, nothing is being scanned. A provider you use that is missing from it is not scanned either; in an ES module app, that means Node was started without [the loader](#es-module-apps). Set `logLevel: 'info'` on `init()` to also emit a one-line confirmation banner.
 
 ### Supported SDKs
 
@@ -73,17 +75,45 @@ Auto-instrumentation patches the `create` / `generateContent` / `chat` / `send` 
 | Cohere | `cohere-ai` | `Client.chat` / `ClientV2.chat` |
 | AWS Bedrock | `@aws-sdk/client-bedrock-runtime` | `BedrockRuntimeClient.send` (InvokeModel, InvokeModelWithResponseStream, Converse, ConverseStream) |
 
-For `@google/genai`, the `config.systemInstruction` system prompt is scanned, as are tool-call arguments and code-execution output. It is patched by swapping the exported `GoogleGenAI` constructor, because this SDK assigns `generateContent` as an own property in the constructor rather than on the prototype.
+For `@google/genai`, the `config.systemInstruction` system prompt is scanned, as are tool-call arguments and code-execution output. This SDK assigns `generateContent` as an own property in the constructor rather than on the prototype, so its CommonJS build is patched by swapping the exported `GoogleGenAI` constructor, and its ES module build (whose exports cannot be swapped) by catching the constructor's `models` assignment.
 
 Any framework built on these SDKs is automatically covered: **LangChain.js**, **Vercel AI SDK**, **AutoGen**, **Semantic Kernel**, and more.
 
-> Patches attach to the modules resolved via CommonJS `require()`. If `init()` finds **no** patchable SDK it logs a warning (nothing would be scanned). You can also verify at runtime with `getAppliedPatches()`:
+> `init()` patches the modules resolved via CommonJS `require()`; [the loader](#es-module-apps) patches the ES module builds as well. If `init()` finds **no** patchable SDK it logs a warning (nothing would be scanned). You can also verify at runtime with `getAppliedPatches()`:
 > ```typescript
 > import { init, getAppliedPatches } from 'promptguard-sdk';
 > init({ apiKey: 'pg_live_xxx' });
 > console.log(getAppliedPatches()); // e.g. ['openai', 'anthropic']
 > ```
-> Native-ESM apps: see [Limitations: ESM apps](#limitations).
+
+### ES module apps
+
+A native ES module app (`"type": "module"` in package.json, or `.mjs` files) needs one more thing: start Node with the PromptGuard loader.
+
+```bash
+node --import promptguard-sdk/register app.js
+```
+
+Your code does not change: keep `import OpenAI from 'openai'` and call `init()` as above. Set it once wherever the process starts, for example `"start": "node --import promptguard-sdk/register app.js"` in package.json, or `NODE_OPTIONS="--import promptguard-sdk/register"`.
+
+Why it is needed: `openai`, `@anthropic-ai/sdk`, `@google/genai` and `@google/generative-ai` each ship a CommonJS build and a separate ES module build, so a process can hold two copies of every class. `init()` patches the CommonJS copy; an ES module app's `import` gets the other one (the dual-package hazard). The loader imports the ES module builds before your app starts and patches them too. It only patches: until your app calls `init()`, patched methods call straight through. `cohere-ai` and `@aws-sdk/client-bedrock-runtime` ship one build that both module systems share, so `init()` alone covers them.
+
+Without the loader, `init()` tells you rather than failing silently. In an ES module app, for each installed provider with a separate ES module build, it logs a warning naming the package and the loader, and `getAppliedPatches()` leaves that provider out, so a startup check like this fails instead of passing while calls go unscanned:
+
+```typescript
+init({ apiKey: 'pg_live_xxx' });
+if (!getAppliedPatches().includes('openai')) {
+  throw new Error('PromptGuard is not scanning openai calls');
+}
+```
+
+The exception is a provider whose CommonJS build your app loaded before `init()` (for example through `createRequire(import.meta.url)('openai')`): that is the copy `init()` patches, so it is reported as patched without the loader.
+
+`init()` can tell only that the entry point is an ES module, not which files import what. Two cases it gets wrong, both fixed by starting Node with the loader: an app whose entry is CommonJS but which imports a provider from an ES module file is not warned about (and the provider is reported as patched); and an app that loads the CommonJS build through `createRequire` only after `init()` has run is reported as unpatched.
+
+The loader imports every installed provider that ships a separate ES module build when the process starts, including ones your app never imports, so expect a little more startup time when several are installed.
+
+Requires Node 20 or newer (`--import`). Transpiled-to-CommonJS TypeScript apps (the common `tsc`/`ts-node` default) do not need the loader: their `import`s compile to `require()` and reach the patched copies.
 
 ### Modes
 
@@ -113,9 +143,8 @@ init({
 `init()` resolving does not mean anything is being scanned. PromptGuard **fails
 open**, so a rejected API key, an unreachable Guard API, or a provider SDK we
 never hooked all leave you with an application that runs perfectly and blocks
-nothing. In a native-ESM app, where the patches may never attach at all (see
-[Limitations](#esm-apps-auto-instrumentation)), that is the default rather than
-the edge case.
+nothing. In an ES module app started without [the loader](#es-module-apps),
+that is the default rather than the edge case.
 
 `verify()` is the positive check. It makes the real calls and reports what came
 back:
@@ -450,16 +479,11 @@ Device/scan-only credentials cannot reach these endpoints.
 
 ### ESM apps (auto-instrumentation)
 
-Auto-instrumentation (`init()`) patches the provider modules that Node resolves via **CommonJS `require()`**. If your application runs as **native ESM** (`"type": "module"` in package.json, or `.mjs` files) and a provider ships separate ESM builds, the module instances your code `import`s can be *different objects* from the ones the SDK patched, the **dual-package hazard**. In that case your LLM calls bypass the patches entirely and **enforce mode silently protects nothing**.
+Native ES module apps are covered when Node starts with `node --import promptguard-sdk/register app.js`; see [ES module apps](#es-module-apps). Without the loader, providers that ship a separate ES module build are not scanned, and `init()` warns about each one. The ESM-safe APIs below do not rely on module patching at all:
 
-What to do:
-
-- **Verify at runtime** with [`verify()`](#confirming-protection-is-actually-live), which makes real calls and reports what came back, or with `getAppliedPatches()` for the patch list alone, and note that a patch being listed proves the CJS build was patched, not that your ESM imports go through it. `init()` also logs a warning when it applies zero patches.
-- **Prefer the ESM-safe APIs**, which don't rely on module patching:
-  - LangChain: `PromptGuardCallbackHandler` (`promptguard-sdk/integrations/langchain`)
-  - Vercel AI SDK: `promptguard(model)` or `promptGuardMiddleware` (`promptguard-sdk/integrations/vercel-ai`)
-  - Any framework: explicit `GuardClient.scan()` calls around your LLM invocations
-- Transpiled-to-CJS TypeScript apps (the common `tsc`/`ts-node` default) are **not** affected, their `import`s compile to `require()` and hit the patched modules.
+- LangChain: `PromptGuardCallbackHandler` (`promptguard-sdk/integrations/langchain`)
+- Vercel AI SDK: `promptguard(model)` or `promptGuardMiddleware` (`promptguard-sdk/integrations/vercel-ai`)
+- Any framework: explicit `GuardClient.scan()` calls around your LLM invocations
 
 ### Other limitations
 

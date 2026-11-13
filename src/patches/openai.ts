@@ -17,11 +17,25 @@
 import type { GuardMessage } from "../guard"
 import { asSessionId } from "../integrations/session"
 import { logger } from "../logger"
-import { createPatchedMethod } from "./base"
+import { loadPrototype, type ModuleLoader, unwrapMethod, wrapMethod } from "./base"
 
-let originalCreate: ((...args: unknown[]) => unknown) | null = null
-let originalResponsesCreate: ((...args: unknown[]) => unknown) | null = null
-let patched = false
+const CHAT_COMPLETIONS = "openai/resources/chat/completions"
+const RESPONSES = "openai/resources/responses/responses"
+
+/** The modules this patch loads, for the `register` entry to `import()`. */
+export const SPECIFIERS = [CHAT_COMPLETIONS, RESPONSES]
+
+let loggedActive = false
+
+/**
+ * The CommonJS build, through literal `require()` calls so that bundlers
+ * still see the dependency.
+ */
+function requireCjs(specifier: string): unknown {
+  return specifier === RESPONSES
+    ? require("openai/resources/responses/responses")
+    : require("openai/resources/chat/completions")
+}
 
 // ---------------------------------------------------------------------------
 // Message conversion
@@ -226,20 +240,8 @@ export function applyResponsesRedactionToArgs(
 // Apply / revert
 // ---------------------------------------------------------------------------
 
-function applyChatCompletionsPatch(): boolean {
-  let Completions: { prototype: { create: unknown } }
-  try {
-    const mod = require("openai/resources/chat/completions")
-    Completions = mod.Completions
-    if (!Completions?.prototype?.create) return false
-  } catch {
-    return false
-  }
-
-  const original = Completions.prototype.create as (...args: unknown[]) => unknown
-  originalCreate = original
-
-  Completions.prototype.create = createPatchedMethod(original, {
+function applyChatCompletionsPatch(load: ModuleLoader): boolean {
+  return wrapMethod(loadPrototype(load, CHAT_COMPLETIONS, "Completions"), "create", {
     framework: "openai",
     extractMessages: (args) => {
       const params = (args[0] ?? {}) as Record<string, unknown>
@@ -252,7 +254,6 @@ function applyChatCompletionsPatch(): boolean {
     extractResponseText: (response) => extractResponseContent(response),
     applyRedaction: applyRedactionToArgs,
   })
-  return true
 }
 
 /**
@@ -270,22 +271,10 @@ export function responsesConversationId(conversation: unknown): string | undefin
   return typeof id === "string" ? asSessionId(id) : undefined
 }
 
-function applyResponsesPatch(): boolean {
-  let Responses: { prototype: { create: unknown } }
-  try {
-    // Guarded require: older `openai` versions have no Responses API, the
-    // chat.completions patch still applies without it.
-    const mod = require("openai/resources/responses/responses")
-    Responses = mod.Responses
-    if (!Responses?.prototype?.create) return false
-  } catch {
-    return false
-  }
-
-  const original = Responses.prototype.create as (...args: unknown[]) => unknown
-  originalResponsesCreate = original
-
-  Responses.prototype.create = createPatchedMethod(original, {
+function applyResponsesPatch(load: ModuleLoader): boolean {
+  // Older `openai` versions have no Responses API; the chat.completions patch
+  // still applies without it.
+  return wrapMethod(loadPrototype(load, RESPONSES, "Responses"), "create", {
     framework: "openai",
     extractMessages: (args) => {
       const params = (args[0] ?? {}) as Record<string, unknown>
@@ -298,49 +287,31 @@ function applyResponsesPatch(): boolean {
     extractResponseText: (response) => extractResponsesResponseText(response),
     applyRedaction: applyResponsesRedactionToArgs,
   })
-  return true
 }
 
-export function apply(): boolean {
-  if (patched) return true
-
-  const chatPatched = applyChatCompletionsPatch()
-  const responsesPatched = applyResponsesPatch()
+/**
+ * Patch the copy of the SDK that `load` reaches: the CommonJS build by
+ * default, the ES module build when the `register` entry passes its loader.
+ * Idempotent per copy.
+ */
+export function apply(load: ModuleLoader = requireCjs): boolean {
+  const chatPatched = applyChatCompletionsPatch(load)
+  const responsesPatched = applyResponsesPatch(load)
   if (!chatPatched && !responsesPatched) return false
 
-  patched = true
-  // Logged once per process (apply() is idempotent via the `patched` flag).
-  logger.debug(
-    "openai patch active " +
-      `(chat.completions=${chatPatched}, responses=${responsesPatched}): ` +
-      "APIPromise helpers (.withResponse()/.asResponse()) " +
-      "are not preserved on patched methods, see README 'Limitations'",
-  )
+  if (!loggedActive) {
+    loggedActive = true
+    logger.debug(
+      "openai patch active " +
+        `(chat.completions=${chatPatched}, responses=${responsesPatched}): ` +
+        "APIPromise helpers (.withResponse()/.asResponse()) " +
+        "are not preserved on patched methods, see README 'Limitations'",
+    )
+  }
   return true
 }
 
-export function revert(): void {
-  if (!patched) return
-
-  if (originalCreate) {
-    try {
-      const mod = require("openai/resources/chat/completions")
-      mod.Completions.prototype.create = originalCreate
-    } catch {
-      // ignore
-    }
-  }
-
-  if (originalResponsesCreate) {
-    try {
-      const mod = require("openai/resources/responses/responses")
-      mod.Responses.prototype.create = originalResponsesCreate
-    } catch {
-      // ignore
-    }
-  }
-
-  originalCreate = null
-  originalResponsesCreate = null
-  patched = false
+export function revert(load: ModuleLoader = requireCjs): void {
+  unwrapMethod(loadPrototype(load, CHAT_COMPLETIONS, "Completions"), "create")
+  unwrapMethod(loadPrototype(load, RESPONSES, "Responses"), "create")
 }
