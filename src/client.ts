@@ -483,6 +483,7 @@ export class PromptGuard {
               current_plan?: string
               requests_used?: number
               requests_limit?: number
+              dashboard_url?: string | null
             }
           }
           const err = errorBody.error
@@ -498,6 +499,11 @@ export class PromptGuard {
               currentPlan: err?.current_plan,
               requestsUsed: err?.requests_used,
               requestsLimit: err?.requests_limit,
+              // The decided event's page: in the error body, and in a header
+              // on every proxy response that recorded an event.
+              dashboardUrl:
+                eventPageUrl(err?.dashboard_url) ??
+                eventPageUrl(response.headers?.get?.("x-promptguard-dashboard-url")),
             },
           )
         }
@@ -560,6 +566,11 @@ export class PromptGuardError extends Error {
   currentPlan?: string
   requestsUsed?: number
   requestsLimit?: number
+  /**
+   * The dashboard page of the event the proxy recorded for this request (a
+   * block names the event that blocked it), or `null` when it named none.
+   */
+  dashboardUrl: string | null
 
   constructor(
     message: string,
@@ -571,6 +582,7 @@ export class PromptGuardError extends Error {
       currentPlan?: string
       requestsUsed?: number
       requestsLimit?: number
+      dashboardUrl?: string | null
     },
   ) {
     // Keep the human-readable message clean; the machine-readable `code` is
@@ -584,5 +596,22 @@ export class PromptGuardError extends Error {
     this.currentPlan = extra?.currentPlan
     this.requestsUsed = extra?.requestsUsed
     this.requestsLimit = extra?.requestsLimit
+    this.dashboardUrl = extra?.dashboardUrl ?? null
+  }
+}
+
+/**
+ * A recorded event's dashboard page as the API returned it, or `null` when it
+ * is absent, empty or not an http(s) URL. Only a web URL is passed on: the
+ * value ends up in error messages and logs, and in whatever UI renders them
+ * as a link.
+ */
+export function eventPageUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value === "") return null
+  try {
+    const { protocol } = new URL(value)
+    return protocol === "https:" || protocol === "http:" ? value : null
+  } catch {
+    return null
   }
 }

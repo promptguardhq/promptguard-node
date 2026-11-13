@@ -42,6 +42,7 @@
  */
 
 import {
+  eventRef,
   GuardApiError,
   GuardClient,
   type GuardClientConfig,
@@ -174,7 +175,7 @@ export function promptGuardMiddleware(options: PromptGuardMiddlewareOptions = {}
 
         if (decision.blocked) {
           if (mode === "enforce") throw new PromptGuardBlockedError(decision)
-          logger.warn(`[monitor] would block: ${decision.threatType} (event=${decision.eventId})`)
+          logger.warn(`[monitor] would block: ${decision.threatType} (${eventRef(decision)})`)
         }
 
         if (decision.redacted) {
@@ -195,7 +196,7 @@ export function promptGuardMiddleware(options: PromptGuardMiddlewareOptions = {}
                   (isPartial && redactedMessages.length
                     ? `${redactedMessages.length} redacted messages for ${guardMessages.length} scanned`
                     : "no redacted messages") +
-                  `; escalating to block (event=${decision.eventId})`,
+                  `; escalating to block (${eventRef(decision)})`,
               )
               throw new PromptGuardBlockedError(decision)
             }
@@ -209,7 +210,7 @@ export function promptGuardMiddleware(options: PromptGuardMiddlewareOptions = {}
               (isPartial
                 ? ` (partial: ${redactedMessages.length} redacted messages for ${guardMessages.length} scanned)`
                 : "") +
-              ` (event=${decision.eventId})`,
+              ` (${eventRef(decision)})`,
           )
         }
       } catch (err) {

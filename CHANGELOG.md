@@ -31,7 +31,14 @@ survives three releases is a changelog nobody is maintaining.
   names it at the end of its message, and every `GuardDecision` carries it as
   `dashboardUrl`. It is `null` when no event was recorded (a `pgshadow doctor`
   probe) and when the Guard API predates the field, so nothing breaks against
-  an older Engine.
+  an older Engine. Only an http(s) URL is passed on.
+- **The proxy client's error links to its event too:
+  `PromptGuardError.dashboardUrl`**, read from the proxy's
+  `error.dashboard_url` or its `x-promptguard-dashboard-url` header, `null`
+  when the proxy names no page.
+- **Monitor mode's "would block" and "would redact" warnings name the event's
+  page** beside its id, for the shadow deployment where nobody catches an
+  error.
 
 ### Changed
 

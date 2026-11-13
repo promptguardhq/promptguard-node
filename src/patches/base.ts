@@ -7,6 +7,7 @@
  */
 
 import {
+  eventRef,
   GuardApiError,
   type GuardClient,
   type GuardMessage,
@@ -167,7 +168,7 @@ export function createPatchedMethod(
 
       if (decision?.blocked) {
         if (getMode() === "enforce") throw new PromptGuardBlockedError(decision)
-        logger.warn(`[monitor] would block: ${decision.threatType} (event=${decision.eventId})`)
+        logger.warn(`[monitor] would block: ${decision.threatType} (${eventRef(decision)})`)
       }
 
       if (decision?.redacted) {
@@ -196,7 +197,7 @@ export function createPatchedMethod(
                 (isPartial
                   ? ` (${redactedMessages.length} redacted messages for ${messages.length} scanned)`
                   : "") +
-                `; escalating to block (event=${decision.eventId})`,
+                `; escalating to block (${eventRef(decision)})`,
             )
             throw new PromptGuardBlockedError(decision)
           }
@@ -207,7 +208,7 @@ export function createPatchedMethod(
               (isPartial
                 ? ` (partial: ${redactedMessages.length} redacted messages for ${messages.length} scanned)`
                 : "") +
-              ` (event=${decision.eventId})`,
+              ` (${eventRef(decision)})`,
           )
         }
       }

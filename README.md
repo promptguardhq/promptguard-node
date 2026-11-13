@@ -514,7 +514,7 @@ try {
 }
 ```
 
-The same URL is on every decision as `decision.dashboardUrl`, for allow and redact decisions too, whenever the Guard API recorded an event.
+The same URL is on every decision as `decision.dashboardUrl`, for allow and redact decisions too, whenever the Guard API recorded an event. In proxy mode, the `PromptGuardError` a blocked request throws carries it as `error.dashboardUrl`.
 
 ## TypeScript Support
 

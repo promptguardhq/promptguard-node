@@ -280,6 +280,11 @@ describe("GuardClient", () => {
   test.each([
     ["an Engine older than the field", {}],
     ["a decision that recorded no event", { dashboard_url: null }],
+    ["an Engine that sent an empty URL", { dashboard_url: "" }],
+    [
+      "an Engine that sent something other than a web URL",
+      { dashboard_url: "javascript:alert(1)" },
+    ],
   ])("a block from %s has a null dashboardUrl", async (_label, extra) => {
     const originalFetch = global.fetch
     global.fetch = jest.fn().mockResolvedValue({

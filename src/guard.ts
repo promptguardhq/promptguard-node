@@ -6,7 +6,7 @@
  * the decision (allow / block / redact).
  */
 
-import { buildRequestUrl } from "./client"
+import { buildRequestUrl, eventPageUrl } from "./client"
 import { DEFAULT_BASE_URL } from "./resolve"
 import {
   computeRetryDelayMs,
@@ -147,7 +147,7 @@ export class GuardDecision {
     }
     this.decision = data.decision
     this.eventId = data.event_id ?? ""
-    this.dashboardUrl = typeof data.dashboard_url === "string" ? data.dashboard_url : null
+    this.dashboardUrl = eventPageUrl(data.dashboard_url)
     this.confidence = data.confidence ?? 0
     this.threatType = data.threat_type
     this.redactedMessages = data.redacted_messages
@@ -205,6 +205,15 @@ export class GuardApiError extends Error {
 export function safeErrorLabel(err: unknown): string {
   if (err instanceof GuardApiError) return err.safeDescription()
   return "unexpected error"
+}
+
+/**
+ * How a log line names a decision's event: its id, and its dashboard page when
+ * the Guard API returned one.
+ */
+export function eventRef(decision: GuardDecision): string {
+  const page = decision.dashboardUrl ? `, ${decision.dashboardUrl}` : ""
+  return `event=${decision.eventId}${page}`
 }
 
 export class PromptGuardBlockedError extends Error {

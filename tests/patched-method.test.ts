@@ -127,6 +127,27 @@ describe("createPatchedMethod input scanning", () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("[monitor]"))
   })
 
+  test("block + monitor: the warning names the event's page", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation()
+    const url = "https://app.promptguard.co/dashboard/projects/p/interactions/e-block"
+    const { patched } = setup({
+      mode: "monitor",
+      scanImpl: jest.fn().mockResolvedValue(
+        new GuardDecision({
+          decision: "block",
+          event_id: "e-block",
+          dashboard_url: url,
+          confidence: 0.95,
+          threat_type: "prompt_injection",
+          threats: [],
+          latency_ms: 1,
+        }),
+      ),
+    })
+    await patched({ messages: userMessages })
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(url))
+  })
+
   test("guard outage + failOpen=true: proceeds unscanned", async () => {
     const warnSpy = jest.spyOn(console, "warn").mockImplementation()
     const { original, patched } = setup({
