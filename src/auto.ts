@@ -491,7 +491,7 @@ function warnAboutEsmGap(pkg: string): void {
   const fix = esmRegisterRan
     ? "The --import promptguard-sdk/register entry ran but could not patch it; " +
       "load it through createRequire() or point that client at the proxy."
-    : "Start Node with: node --import promptguard-sdk/register app.js"
+    : "Start Node with `node --import promptguard-sdk/register app.js`."
   logger.warn(
     `PromptGuard: this app is an ES module and '${pkg}' ships a separate ES module build, ` +
       `which init() does not patch, so calls made through \`import ... from '${pkg}'\` are ` +
