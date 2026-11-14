@@ -13,6 +13,12 @@ survives three releases is a changelog nobody is maintaining.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The ES module warning's advice reads as a sentence.** It ran the command
+  into the link (`...app.js See https://...`); the command is now quoted and
+  the sentence ends before the link.
+
 ## [2.6.0] - 2026-11-13
 
 **ES module apps can be protected, and a block links to its event.** Start an

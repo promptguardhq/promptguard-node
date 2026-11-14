@@ -207,6 +207,8 @@ describe("ES module app with a plain `import OpenAI from 'openai'`", () => {
 
     expect(run.stderr).toContain("ES module build")
     expect(run.stderr).toContain("node --import promptguard-sdk/register")
+    // The command stands apart from the sentence around it, so it copies cleanly.
+    expect(run.stderr).toContain("`node --import promptguard-sdk/register app.js`. See https://")
     expect(run.patches).not.toContain("openai")
     // The truth the warning and the report describe: the call went out unscanned.
     expect(hits.guard).toHaveLength(0)
