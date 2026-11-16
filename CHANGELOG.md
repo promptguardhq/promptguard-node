@@ -13,6 +13,8 @@ survives three releases is a changelog nobody is maintaining.
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-11-16
+
 ### Fixed
 
 - **The ES module warning's advice reads as a sentence.** It ran the command
