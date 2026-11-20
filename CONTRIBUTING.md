@@ -84,18 +84,21 @@ CI runs on every push to `main` and on PRs (`.github/workflows/ci.yml`):
 
 | Job | What it does |
 |---|---|
-| **Lint & Type Check** | `npx biome check .` + `npx tsc --noEmit` |
+| **Lint & Type Check** | `scripts/check_no_github_secrets.py`, `scripts/check_agent_files.py`, `scripts/check_no_dashes.py`, `scripts/check-architecture.mjs`, then `npx biome check .` + `npx tsc --noEmit` |
 | **Test** | `npm test` on Node 20 and 22 |
 | **Validate API Contract** | Downloads the developer OpenAPI spec and checks SDK types against it (`tests/validate-openapi.ts`) |
 | **Build** | `npm run build` + `npm pack --dry-run` + `npm run test:pack` (CJS + ESM packaging smoke test) |
 
 Secret scanning runs separately in `.github/workflows/secret-scan.yml`.
 
-Reproduce CI locally:
+Reproduce CI locally (after `npm ci`; the pre-push hook runs it too):
 
 ```bash
-npm run lint && npm test && npm run build
+bash scripts/check.sh
 ```
+
+It runs every job above except **Validate API Contract**, which fetches the
+published spec over the network.
 
 ## Releasing
 
@@ -115,9 +118,7 @@ No token: npm trusted publishing trusts this repository's `release.yml` and mint
 
 ## PR Checklist
 
-- [ ] `npm run lint` passes (Biome + tsc)
-- [ ] `npm test` passes with coverage thresholds met
-- [ ] `npm run build` succeeds
+- [ ] `bash scripts/check.sh` passes (checks, Biome, tsc, tests with coverage thresholds, build, pack smoke test)
 - [ ] New functionality has tests
 - [ ] Contract tests updated if request/response shapes changed
 - [ ] PR description explains the change
