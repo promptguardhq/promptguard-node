@@ -70,13 +70,23 @@ Coverage is enforced in `jest.config.js`:
 
 Tests will fail if coverage drops below these thresholds.
 
-### No live-API mode
+### Live tests (opt-in)
 
-The whole suite is mocked: no test makes a network call, and no test reads
-`PROMPTGUARD_BASE_URL`. Setting `PROMPTGUARD_API_KEY` does not make any test call
-a real API; the tests that depend on it set or clear it themselves, so a key in
-your shell cannot change their result. To try the SDK against a real backend, write a
-throwaway script that imports `dist/` after `npm run build`.
+Every suite but one is mocked: no test reads `PROMPTGUARD_BASE_URL`, and setting
+`PROMPTGUARD_API_KEY` does not make any test call a real API; the tests that
+depend on it set or clear it themselves, so a key in your shell cannot change
+their result.
+
+The exception is `tests/live.test.ts`, which calls the SDK against a real
+PromptGuard API (staging unless `PROMPTGUARD_LIVE_BASE_URL` says otherwise). It
+is skipped unless `PROMPTGUARD_LIVE_API_KEY` is set, so `npm test` and CI never
+touch the network. Every call in it is a billable request on that key:
+
+```bash
+PROMPTGUARD_LIVE_API_KEY=... npm test -- tests/live.test.ts --coverage=false
+```
+
+`--coverage=false` because the global thresholds apply to whichever files ran.
 
 ## CI/CD
 
