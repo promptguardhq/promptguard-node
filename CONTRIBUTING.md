@@ -70,13 +70,21 @@ Coverage is enforced in `jest.config.js`:
 
 Tests will fail if coverage drops below these thresholds.
 
-### No live-API mode
+### Live tests are opt-in
 
-The whole suite is mocked: no test makes a network call, and no test reads
-`PROMPTGUARD_BASE_URL`. Setting `PROMPTGUARD_API_KEY` does not make any test call
-a real API; the tests that depend on it set or clear it themselves, so a key in
-your shell cannot change their result. To try the SDK against a real backend, write a
-throwaway script that imports `dist/` after `npm run build`.
+Every suite but one is mocked, and no test reads `PROMPTGUARD_BASE_URL`.
+Setting `PROMPTGUARD_API_KEY` does not make any test call a real API; the tests
+that depend on it set or clear it themselves, so a key in your shell cannot
+change their result.
+
+The exception is `tests/live.test.ts`, which calls a real PromptGuard API
+(staging unless `PROMPTGUARD_LIVE_BASE_URL` says otherwise). It is skipped
+unless `PROMPTGUARD_LIVE_API_KEY` is set, so `npm test` and CI never touch the
+network. Every call it makes is a billable request on that key:
+
+```bash
+PROMPTGUARD_LIVE_API_KEY=... npm test -- tests/live.test.ts --coverage=false
+```
 
 ## CI/CD
 
@@ -84,17 +92,19 @@ CI runs on every push to `main` and on PRs (`.github/workflows/ci.yml`):
 
 | Job | What it does |
 |---|---|
-| **Lint & Type Check** | `npx biome check .` + `npx tsc --noEmit` |
+| **Lint & Type Check** | `scripts/check_no_github_secrets.py`, `scripts/check_agent_files.py`, `scripts/check_no_dashes.py`, `scripts/check-architecture.mjs`, `npx biome check .` + `npx tsc --noEmit` |
 | **Test** | `npm test` on Node 20 and 22 |
 | **Validate API Contract** | Downloads the developer OpenAPI spec and checks SDK types against it (`tests/validate-openapi.ts`) |
 | **Build** | `npm run build` + `npm pack --dry-run` + `npm run test:pack` (CJS + ESM packaging smoke test) |
 
 Secret scanning runs separately in `.github/workflows/secret-scan.yml`.
 
-Reproduce CI locally:
+Reproduce CI locally (after `npm ci`; the pre-push hook runs it too). It covers
+every job except Validate API Contract, which fetches the published spec over
+the network:
 
 ```bash
-npm run lint && npm test && npm run build
+bash scripts/check.sh
 ```
 
 ## Releasing
